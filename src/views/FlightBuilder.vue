@@ -303,7 +303,7 @@ const getDefaultFlight = () => ({
   origin: 'KATL',
   destination: 'KJFK',
   originAltApt: '',
-  aircraftId: '737-800',
+  aircraftId: '321NEO',
   destAltApts: [],
   automated: true
 })
