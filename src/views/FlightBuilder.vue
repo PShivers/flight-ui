@@ -282,16 +282,33 @@ const batchProgress = reactive({
   totalBatches: 0
 })
 
-const flight = reactive({
-  flightNumber: '',
-  departureTime: '',
-  origin: '',
-  destination: '',
+// Helper function to get default datetime-local value (current time + 1 hour)
+const getDefaultDateTime = () => {
+  const date = new Date()
+  date.setTime(date.getTime() + 60 * 60 * 1000) // Add 1 hour (60 minutes * 60 seconds * 1000 ms)
+  date.setSeconds(0)
+  date.setMilliseconds(0)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+// Default values for flight form
+const getDefaultFlight = () => ({
+  flightNumber: '001',
+  departureTime: getDefaultDateTime(),
+  origin: 'KATL',
+  destination: 'KJFK',
   originAltApt: '',
-  aircraftId: '',
+  aircraftId: '737-800',
   destAltApts: [],
   automated: true
 })
+
+const flight = reactive(getDefaultFlight())
 
 const snackbar = reactive({
   show: false,
@@ -348,16 +365,7 @@ const removeFlight = (index) => {
 }
 
 const resetForm = () => {
-  Object.assign(flight, {
-    flightNumber: '',
-    departureTime: '',
-    origin: '',
-    destination: '',
-    originAltApt: '',
-    aircraftId: '',
-    destAltApts: [],
-    automated: true
-  })
+  Object.assign(flight, getDefaultFlight())
   form.value?.resetValidation()
 }
 
