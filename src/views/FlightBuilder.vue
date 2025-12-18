@@ -156,18 +156,53 @@
               <v-icon icon="mdi-airplane" class="mr-2"></v-icon>
               Flights ({{ flights.length }})
             </span>
-            <v-btn
-              color="success"
-              :disabled="flights.length === 0 || isSubmitting"
-              :loading="isSubmitting"
-              @click="submitFlights"
-            >
-              <v-icon icon="mdi-send" class="mr-1"></v-icon>
-              Send to Lambda
-            </v-btn>
+            <div class="d-flex align-center" style="gap: 8px;">
+              <v-text-field
+                v-model.number="batchSize"
+                label="Batch Size"
+                type="number"
+                min="1"
+                :max="flights.length"
+                density="compact"
+                style="max-width: 120px;"
+                hint="Flights per batch"
+                persistent-hint
+                :disabled="isSubmitting"
+              ></v-text-field>
+              <v-btn
+                color="success"
+                :disabled="flights.length === 0 || isSubmitting"
+                :loading="isSubmitting"
+                @click="submitFlights"
+              >
+                <v-icon icon="mdi-send" class="mr-1"></v-icon>
+                Send to Lambda
+              </v-btn>
+            </div>
           </v-card-title>
           
           <v-card-text>
+            <v-alert
+              v-if="batchProgress.show"
+              :type="batchProgress.type"
+              variant="tonal"
+              class="mb-4"
+              closable
+              @click:close="batchProgress.show = false"
+            >
+              <div class="text-body-2">
+                {{ batchProgress.message }}
+                <span v-if="batchProgress.currentBatch && batchProgress.totalBatches">
+                  (Batch {{ batchProgress.currentBatch }} of {{ batchProgress.totalBatches }})
+                </span>
+              </div>
+              <v-progress-linear
+                v-if="batchProgress.totalBatches > 1"
+                :model-value="(batchProgress.currentBatch / batchProgress.totalBatches) * 100"
+                color="primary"
+                class="mt-2"
+              ></v-progress-linear>
+            </v-alert>
             <v-list>
               <v-list-item
                 v-for="(flight, index) in flights"
@@ -237,6 +272,15 @@ const form = ref(null)
 const valid = ref(false)
 const flights = ref([])
 const isSubmitting = ref(false)
+const batchSize = ref(10)
+
+const batchProgress = reactive({
+  show: false,
+  message: '',
+  type: 'info',
+  currentBatch: 0,
+  totalBatches: 0
+})
 
 const flight = reactive({
   flightNumber: '',
@@ -326,19 +370,70 @@ const formatDateTime = (dateTimeString) => {
 const submitFlights = async () => {
   if (flights.value.length === 0) return
   
+  const size = Math.max(1, Math.floor(batchSize.value) || 10)
+  const batches = []
+  
+  // Split flights into batches
+  for (let i = 0; i < flights.value.length; i += size) {
+    batches.push(flights.value.slice(i, i + size))
+  }
+  
   isSubmitting.value = true
+  batchProgress.totalBatches = batches.length
+  batchProgress.show = true
+  batchProgress.type = 'info'
+  
+  let successCount = 0
+  let errorCount = 0
+  
   try {
-    const response = await invokeLambda(flights.value)
-    showSnackbar('Flights sent to Lambda successfully!', 'success')
-    console.log('Lambda response:', response)
-    // Optionally clear flights after successful submission
-    // flights.value = []
+    for (let i = 0; i < batches.length; i++) {
+      batchProgress.currentBatch = i + 1
+      batchProgress.message = `Sending batch ${i + 1} of ${batches.length} (${batches[i].length} flights)...`
+      
+      try {
+        const response = await invokeLambda(batches[i])
+        successCount += batches[i].length
+        console.log(`Batch ${i + 1} response:`, response)
+        
+        // If this is the last batch, show final success message
+        if (i === batches.length - 1) {
+          if (errorCount === 0) {
+            batchProgress.message = `All ${successCount} flights sent successfully!`
+            batchProgress.type = 'success'
+            showSnackbar(`Successfully sent ${successCount} flights in ${batches.length} batch(es)!`, 'success')
+          } else {
+            batchProgress.message = `Completed: ${successCount} succeeded, ${errorCount} failed`
+            batchProgress.type = 'warning'
+            showSnackbar(`Completed with errors: ${successCount} succeeded, ${errorCount} failed`, 'warning')
+          }
+        }
+      } catch (error) {
+        errorCount += batches[i].length
+        console.error(`Error in batch ${i + 1}:`, error)
+        
+        // Continue with next batch even if one fails
+        if (i === batches.length - 1) {
+          if (successCount > 0) {
+            batchProgress.message = `Completed with errors: ${successCount} succeeded, ${errorCount} failed`
+            batchProgress.type = 'warning'
+            showSnackbar(`Some batches failed: ${successCount} succeeded, ${errorCount} failed`, 'warning')
+          } else {
+            batchProgress.message = `All batches failed. Last error: ${error.response?.data?.message || error.message}`
+            batchProgress.type = 'error'
+            showSnackbar(
+              error.response?.data?.message || 'Error sending flights to Lambda',
+              'error'
+            )
+          }
+        }
+      }
+    }
   } catch (error) {
-    showSnackbar(
-      error.response?.data?.message || 'Error sending flights to Lambda',
-      'error'
-    )
-    console.error('Error:', error)
+    batchProgress.message = `Unexpected error: ${error.message}`
+    batchProgress.type = 'error'
+    showSnackbar('Unexpected error occurred', 'error')
+    console.error('Unexpected error:', error)
   } finally {
     isSubmitting.value = false
   }
