@@ -117,23 +117,25 @@
                 </v-col>
               </v-row>
               
-              <v-btn
-                color="primary"
-                :disabled="!valid"
-                @click="addFlight"
-                class="mr-2"
-              >
+              <div class="mt-4">
+                <v-btn
+                  color="primary"
+                  :disabled="!valid"
+                  @click="addFlight"
+                  class="mr-2"
+                >
                 <v-icon icon="mdi-plus" class="mr-1"></v-icon>
                 Add Flight
               </v-btn>
               
-              <v-btn
-                color="secondary"
-                variant="outlined"
-                @click="resetForm"
-              >
-                Reset Form
-              </v-btn>
+                <v-btn
+                  color="secondary"
+                  variant="outlined"
+                  @click="resetForm"
+                >
+                  Reset Form
+                </v-btn>
+              </div>
             </v-form>
           </v-card-text>
         </v-card>

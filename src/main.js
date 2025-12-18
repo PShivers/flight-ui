@@ -19,7 +19,19 @@ const vuetify = createVuetify({
     },
   },
   theme: {
-    defaultTheme: 'light',
+    defaultTheme: 'dark',
+    themes: {
+      light: {
+        colors: {
+          primary: '#1976D2',
+        },
+      },
+      dark: {
+        colors: {
+          primary: '#2196F3',
+        },
+      },
+    },
   },
 })
 
