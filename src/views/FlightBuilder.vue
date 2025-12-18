@@ -1,11 +1,88 @@
 <template>
   <v-container>
+    <!-- Batch Management Section -->
+    <v-row>
+      <v-col cols="12">
+        <v-card>
+          <v-card-title class="d-flex align-center justify-space-between">
+            <span>
+              <v-icon icon="mdi-folder-multiple" class="mr-2"></v-icon>
+              Flight Batches
+            </span>
+            <v-btn
+              color="primary"
+              @click="createNewBatch"
+              prepend-icon="mdi-plus"
+            >
+              New Batch
+            </v-btn>
+          </v-card-title>
+          
+          <v-card-text>
+            <v-select
+              v-model="currentBatchId"
+              :items="batchOptions"
+              label="Select Batch"
+              item-title="title"
+              item-value="id"
+              return-object
+              @update:model-value="onBatchChange"
+              hint="Select a batch to add flights to"
+              persistent-hint
+            >
+              <template v-slot:item="{ props, item }">
+                <v-list-item v-bind="props">
+                  <template v-slot:prepend>
+                    <v-icon icon="mdi-folder" class="mr-2"></v-icon>
+                  </template>
+                  <v-list-item-title>{{ item.raw.title }}</v-list-item-title>
+                  <v-list-item-subtitle>
+                    {{ batches[item.raw.id]?.flights?.length || 0 }} flights
+                  </v-list-item-subtitle>
+                  <template v-slot:append>
+                    <v-btn
+                      icon="mdi-delete"
+                      variant="text"
+                      color="error"
+                      size="small"
+                      @click.stop="deleteBatch(item.raw.id)"
+                      :disabled="batches[item.raw.id]?.flights?.length > 0"
+                    ></v-btn>
+                  </template>
+                </v-list-item>
+              </template>
+            </v-select>
+            
+            <v-alert
+              v-if="currentBatch"
+              type="info"
+              variant="tonal"
+              class="mt-3"
+            >
+              <div class="d-flex align-center justify-space-between">
+                <span>
+                  <strong>{{ currentBatch.title }}</strong>
+                  <span class="ml-2">({{ currentBatch.flights.length }} flights)</span>
+                </span>
+                <v-chip size="small" color="primary">
+                  Active Batch
+                </v-chip>
+              </div>
+            </v-alert>
+          </v-card-text>
+        </v-card>
+      </v-col>
+    </v-row>
+
     <v-row>
       <v-col cols="12">
         <v-card>
           <v-card-title class="d-flex align-center">
             <v-icon icon="mdi-plus-circle" class="mr-2"></v-icon>
             Build Flights
+            <v-chip v-if="currentBatch" size="small" color="primary" class="ml-2">
+              Adding to: {{ currentBatch.title }}
+            </v-chip>
           </v-card-title>
           
           <v-card-text>
@@ -120,12 +197,12 @@
               <div class="mt-4">
                 <v-btn
                   color="primary"
-                  :disabled="!valid"
+                  :disabled="!valid || !currentBatch"
                   @click="addFlight"
                   class="mr-2"
                 >
                 <v-icon icon="mdi-plus" class="mr-1"></v-icon>
-                Add Flight
+                Add Flight to Batch
               </v-btn>
               
                 <v-btn
@@ -142,13 +219,13 @@
       </v-col>
     </v-row>
     
-    <v-row v-if="flights.length > 0">
+    <v-row v-if="currentBatch && currentBatch.flights.length > 0">
       <v-col cols="12">
         <v-card>
           <v-card-title class="d-flex align-center justify-space-between">
             <span>
               <v-icon icon="mdi-airplane" class="mr-2"></v-icon>
-              Flights ({{ flights.length }})
+              {{ currentBatch.title }} - Flights ({{ currentBatch.flights.length }})
             </span>
             <div class="d-flex align-center" style="gap: 8px;">
               <v-text-field
@@ -156,7 +233,7 @@
                 label="Batch Size"
                 type="number"
                 min="1"
-                :max="flights.length"
+                :max="currentBatch.flights.length"
                 density="compact"
                 style="max-width: 120px;"
                 hint="Flights per batch"
@@ -165,7 +242,7 @@
               ></v-text-field>
               <v-btn
                 color="success"
-                :disabled="flights.length === 0 || isSubmitting"
+                :disabled="currentBatch.flights.length === 0 || isSubmitting"
                 :loading="isSubmitting"
                 @click="submitFlights"
               >
@@ -199,7 +276,7 @@
             </v-alert>
             <v-list>
               <v-list-item
-                v-for="(flight, index) in flights"
+                v-for="(flight, index) in currentBatch.flights"
                 :key="index"
                 class="mb-2"
               >
@@ -254,18 +331,67 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+    <!-- Dialog for creating new batch -->
+    <v-dialog v-model="newBatchDialog" max-width="500">
+      <v-card>
+        <v-card-title>
+          <span class="text-h5">Create New Batch</span>
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="newBatchName"
+            label="Batch Name"
+            :rules="[rules.required, rules.batchName]"
+            hint="Enter a name for this batch"
+            persistent-hint
+            autofocus
+            @keyup.enter="confirmCreateBatch"
+          ></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="newBatchDialog = false">
+            Cancel
+          </v-btn>
+          <v-btn
+            color="primary"
+            :disabled="!newBatchName || !isValidBatchName(newBatchName)"
+            @click="confirmCreateBatch"
+          >
+            Create
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { invokeLambda } from '../services/api'
 
 const form = ref(null)
 const valid = ref(false)
-const flights = ref([])
 const isSubmitting = ref(false)
 const batchSize = ref(10)
+const currentBatchId = ref(null)
+const batches = ref({})
+const newBatchDialog = ref(false)
+const newBatchName = ref('')
+
+// Computed properties
+const currentBatch = computed(() => {
+  if (!currentBatchId.value) return null
+  return batches.value[currentBatchId.value] || null
+})
+
+const batchOptions = computed(() => {
+  return Object.values(batches.value).map(batch => ({
+    id: batch.id,
+    title: batch.title
+  }))
+})
 
 const batchProgress = reactive({
   show: false,
@@ -347,8 +473,124 @@ const rules = {
     const isValid3 = value.length === 3 && /^[A-Z]{3}$/i.test(value)
     const isValid4 = value.length === 4 && /^[A-Z]{4}$/i.test(value)
     return isValid3 || isValid4 || 'Must be a 3 or 4-letter airport code'
+  },
+  batchName: value => {
+    if (!value) return true
+    return value.trim().length > 0 || 'Batch name cannot be empty'
   }
 }
+
+// Batch management functions
+const generateBatchId = () => {
+  return `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+const createNewBatch = () => {
+  newBatchName.value = ''
+  newBatchDialog.value = true
+}
+
+const confirmCreateBatch = () => {
+  if (!isValidBatchName(newBatchName.value)) return
+  
+  const batchId = generateBatchId()
+  const batch = {
+    id: batchId,
+    title: newBatchName.value.trim(),
+    flights: [],
+    createdAt: new Date().toISOString()
+  }
+  
+  batches.value[batchId] = batch
+  currentBatchId.value = batchId
+  newBatchDialog.value = false
+  newBatchName.value = ''
+  
+  // Save to localStorage
+  saveBatchesToStorage()
+  
+  showSnackbar(`Batch "${batch.title}" created!`, 'success')
+}
+
+const isValidBatchName = (name) => {
+  return name && name.trim().length > 0
+}
+
+const onBatchChange = (batch) => {
+  if (batch && batch.id) {
+    currentBatchId.value = batch.id
+    saveBatchesToStorage()
+  }
+}
+
+const deleteBatch = (batchId) => {
+  if (!batches.value[batchId]) return
+  
+  const batch = batches.value[batchId]
+  if (batch.flights.length > 0) {
+    showSnackbar('Cannot delete batch with flights. Remove flights first.', 'warning')
+    return
+  }
+  
+  delete batches.value[batchId]
+  
+  // If deleted batch was current, select another or clear
+  if (currentBatchId.value === batchId) {
+    const remainingBatches = Object.values(batches.value)
+    currentBatchId.value = remainingBatches.length > 0 ? remainingBatches[0].id : null
+  }
+  
+  saveBatchesToStorage()
+  showSnackbar(`Batch "${batch.title}" deleted`, 'info')
+}
+
+// LocalStorage persistence
+const saveBatchesToStorage = () => {
+  try {
+    localStorage.setItem('flightBatches', JSON.stringify(batches.value))
+    localStorage.setItem('currentBatchId', currentBatchId.value)
+  } catch (error) {
+    console.error('Error saving batches to localStorage:', error)
+  }
+}
+
+const loadBatchesFromStorage = () => {
+  try {
+    const saved = localStorage.getItem('flightBatches')
+    const savedCurrentId = localStorage.getItem('currentBatchId')
+    
+    if (saved) {
+      batches.value = JSON.parse(saved)
+    }
+    
+    if (savedCurrentId && batches.value[savedCurrentId]) {
+      currentBatchId.value = savedCurrentId
+    } else if (Object.keys(batches.value).length > 0) {
+      // Select first batch if current doesn't exist
+      currentBatchId.value = Object.values(batches.value)[0].id
+    }
+  } catch (error) {
+    console.error('Error loading batches from localStorage:', error)
+  }
+}
+
+// Initialize with default batch if none exist
+onMounted(() => {
+  loadBatchesFromStorage()
+  
+  // Create default batch if none exist
+  if (Object.keys(batches.value).length === 0) {
+    const defaultBatch = {
+      id: generateBatchId(),
+      title: 'Default Batch',
+      flights: [],
+      createdAt: new Date().toISOString()
+    }
+    batches.value[defaultBatch.id] = defaultBatch
+    currentBatchId.value = defaultBatch.id
+    saveBatchesToStorage()
+  }
+})
 
 const addDestAlt = () => {
   flight.destAltApts.push({ apt: '' })
@@ -359,6 +601,11 @@ const removeDestAlt = (index) => {
 }
 
 const addFlight = async () => {
+  if (!currentBatch.value) {
+    showSnackbar('Please select or create a batch first', 'warning')
+    return
+  }
+  
   const { valid: isValid } = await form.value.validate()
   if (!isValid) return
   
@@ -377,13 +624,16 @@ const addFlight = async () => {
     automated: flight.automated
   }
   
-  flights.value.push({ ...flightData })
+  currentBatch.value.flights.push({ ...flightData })
+  saveBatchesToStorage()
   resetForm()
-  showSnackbar('Flight added successfully!', 'success')
+  showSnackbar(`Flight added to "${currentBatch.value.title}"!`, 'success')
 }
 
 const removeFlight = (index) => {
-  flights.value.splice(index, 1)
+  if (!currentBatch.value) return
+  currentBatch.value.flights.splice(index, 1)
+  saveBatchesToStorage()
   showSnackbar('Flight removed', 'info')
 }
 
@@ -399,14 +649,15 @@ const formatDateTime = (dateTimeString) => {
 }
 
 const submitFlights = async () => {
-  if (flights.value.length === 0) return
+  if (!currentBatch.value || currentBatch.value.flights.length === 0) return
   
+  const flightsToSubmit = currentBatch.value.flights
   const size = Math.max(1, Math.floor(batchSize.value) || 10)
   const batches = []
   
   // Split flights into batches
-  for (let i = 0; i < flights.value.length; i += size) {
-    batches.push(flights.value.slice(i, i + size))
+  for (let i = 0; i < flightsToSubmit.length; i += size) {
+    batches.push(flightsToSubmit.slice(i, i + size))
   }
   
   isSubmitting.value = true
