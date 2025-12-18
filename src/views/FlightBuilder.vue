@@ -1,5 +1,5 @@
 <template>
-  <v-container>
+  <v-container fluid>
     <!-- Batch Management Section -->
     <v-row>
       <v-col cols="12">
@@ -9,13 +9,29 @@
           @update:currentBatchId="onBatchChange"
           @create-batch="createNewBatch"
           @delete-batch="deleteBatch"
+          @show-all-batches="allBatchesDialog = true"
         />
       </v-col>
     </v-row>
 
-    <!-- Flight Form -->
+    <!-- Main Content with Sidebar -->
     <v-row>
-      <v-col cols="12">
+      <!-- Batch Sidebar (Left) -->
+      <v-col v-if="currentBatch" cols="12" md="4" lg="3">
+        <BatchSidebar
+          :current-batch="currentBatch"
+          :is-submitting="isSubmitting"
+          :batch-progress="batchProgress"
+          :batch-size="batchSize"
+          @submit-flights="submitFlights"
+          @remove-flight="removeFlight"
+          @edit-flight="handleEditFlight"
+          @update:batchSize="batchSize = $event"
+        />
+      </v-col>
+
+      <!-- Flight Form (Right) -->
+      <v-col cols="12" :md="currentBatch ? 8 : 12" :lg="currentBatch ? 9 : 12">
         <FlightForm
           ref="flightFormRef"
           :current-batch="currentBatch"
@@ -23,21 +39,6 @@
           :aircraft-options="aircraftOptions"
           @add-flight="addFlight"
           @reset-form="handleFormReset"
-        />
-      </v-col>
-    </v-row>
-
-    <!-- Flight List -->
-    <v-row v-if="currentBatch && currentBatch.flights.length > 0">
-      <v-col cols="12">
-        <FlightList
-          :current-batch="currentBatch"
-          :is-submitting="isSubmitting"
-          :batch-progress="batchProgress"
-          :batch-size="batchSize"
-          @submit-flights="submitFlights"
-          @remove-flight="removeFlight"
-          @update:batchSize="batchSize = $event"
         />
       </v-col>
     </v-row>
@@ -57,6 +58,24 @@
 
     <!-- Create Batch Dialog -->
     <CreateBatchDialog v-model="newBatchDialog" @create="confirmCreateBatch" />
+
+    <!-- Edit Flight Dialog -->
+    <EditFlightDialog
+      v-model="editFlightDialog"
+      :flight="editingFlight"
+      :destination-options="destinationOptions"
+      :aircraft-options="aircraftOptions"
+      @save="handleSaveFlight"
+    />
+
+    <!-- All Batches Dialog -->
+    <AllBatchesDialog
+      v-model="allBatchesDialog"
+      :batches="batches"
+      :current-batch-id="currentBatchId"
+      @update:currentBatchId="onBatchChange"
+      @delete-batch="deleteBatch"
+    />
   </v-container>
 </template>
 
@@ -66,7 +85,9 @@ import { invokeLambda } from "../services/api";
 import BatchSelector from "../components/BatchSelector.vue";
 import CreateBatchDialog from "../components/CreateBatchDialog.vue";
 import FlightForm from "../components/FlightForm.vue";
-import FlightList from "../components/FlightList.vue";
+import BatchSidebar from "../components/BatchSidebar.vue";
+import EditFlightDialog from "../components/EditFlightDialog.vue";
+import AllBatchesDialog from "../components/AllBatchesDialog.vue";
 
 const flightFormRef = ref(null);
 const isSubmitting = ref(false);
@@ -74,6 +95,10 @@ const batchSize = ref(10);
 const currentBatchId = ref(null);
 const batches = ref({});
 const newBatchDialog = ref(false);
+const allBatchesDialog = ref(false);
+const editFlightDialog = ref(false);
+const editingFlight = ref(null);
+const editingFlightIndex = ref(null);
 
 // Computed properties
 const currentBatch = computed(() => {
@@ -266,6 +291,23 @@ const removeFlight = (index) => {
   currentBatch.value.flights.splice(index, 1);
   saveBatchesToStorage();
   showSnackbar("Flight removed", "info");
+};
+
+const handleEditFlight = ({ flight, index }) => {
+  editingFlight.value = flight;
+  editingFlightIndex.value = index;
+  editFlightDialog.value = true;
+};
+
+const handleSaveFlight = (flightData) => {
+  if (!currentBatch.value || editingFlightIndex.value === null) return;
+
+  currentBatch.value.flights[editingFlightIndex.value] = { ...flightData };
+  saveBatchesToStorage();
+  showSnackbar("Flight updated successfully!", "success");
+
+  editingFlight.value = null;
+  editingFlightIndex.value = null;
 };
 
 const submitFlights = async (size) => {

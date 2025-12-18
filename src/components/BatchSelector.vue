@@ -5,26 +5,39 @@
         <v-icon icon="mdi-folder-multiple" class="mr-2"></v-icon>
         Flight Batches
       </span>
-      <v-btn
-        color="primary"
-        @click="$emit('create-batch')"
-        prepend-icon="mdi-plus"
-      >
-        New Batch
-      </v-btn>
+      <div class="d-flex align-center" style="gap: 8px">
+        <v-btn
+          v-if="batchList.length > 0"
+          color="secondary"
+          variant="elevated"
+          @click="$emit('show-all-batches')"
+          prepend-icon="mdi-view-grid"
+        >
+          View All Batches ({{ batchList.length }})
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="elevated"
+          @click="$emit('create-batch')"
+          prepend-icon="mdi-plus"
+        >
+          New Batch
+        </v-btn>
+      </div>
     </v-card-title>
 
     <v-card-text>
       <v-select
         :model-value="currentBatchId"
         :items="batchOptions"
-        label="Select Batch"
+        label="Select Active Batch"
         item-title="title"
         item-value="id"
         return-object
         @update:model-value="handleBatchChange"
         hint="Select a batch to add flights to"
         persistent-hint
+        class="mb-4"
       >
         <template v-slot:item="{ props, item }">
           <v-list-item v-bind="props">
@@ -35,31 +48,9 @@
             <v-list-item-subtitle>
               {{ batches[item.raw.id]?.flights?.length || 0 }} flights
             </v-list-item-subtitle>
-            <template v-slot:append>
-              <v-btn
-                icon="mdi-delete"
-                variant="text"
-                color="error"
-                size="small"
-                @click.stop="$emit('delete-batch', item.raw.id)"
-                :disabled="batches[item.raw.id]?.flights?.length > 0"
-              ></v-btn>
-            </template>
           </v-list-item>
         </template>
       </v-select>
-
-      <v-alert v-if="currentBatch" type="info" variant="tonal" class="mt-3">
-        <div class="d-flex align-center justify-space-between">
-          <span>
-            <strong>{{ currentBatch.title }}</strong>
-            <span class="ml-2"
-              >({{ currentBatch.flights.length }} flights)</span
-            >
-          </span>
-          <v-chip size="small" color="primary"> Active Batch </v-chip>
-        </div>
-      </v-alert>
     </v-card-text>
   </v-card>
 </template>
@@ -82,6 +73,7 @@ const emit = defineEmits([
   "update:currentBatchId",
   "create-batch",
   "delete-batch",
+  "show-all-batches",
 ]);
 
 const currentBatch = computed(() => {
@@ -94,6 +86,10 @@ const batchOptions = computed(() => {
     id: batch.id,
     title: batch.title,
   }));
+});
+
+const batchList = computed(() => {
+  return Object.values(props.batches);
 });
 
 const handleBatchChange = (batch) => {
