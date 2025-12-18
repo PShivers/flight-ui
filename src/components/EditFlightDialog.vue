@@ -35,14 +35,15 @@
             </v-col>
 
             <v-col cols="12" md="6">
-              <v-text-field
+              <v-select
                 v-model="localFlight.origin"
                 label="Origin Airport (OrigApt)"
-                :rules="[rules.required, rules.airportCode]"
+                :items="destinationOptions"
+                :rules="[rules.required]"
                 required
-                hint="4-letter airport code (e.g., KATL, KJFK)"
+                hint="Select origin airport"
                 persistent-hint
-              ></v-text-field>
+              ></v-select>
             </v-col>
 
             <v-col cols="12" md="6">
