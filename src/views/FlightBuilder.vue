@@ -44,35 +44,27 @@
                 </v-col>
                 
                 <v-col cols="12" md="6">
-                  <v-text-field
+                  <v-select
                     v-model="flight.destination"
                     label="Destination Airport (DestApt)"
-                    :rules="[rules.required, rules.airportCode]"
-                    required
-                    hint="4-letter airport code (e.g., KJFK, KLGA)"
-                    persistent-hint
-                  ></v-text-field>
-                </v-col>
-                
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="flight.originAltApt"
-                    label="Origin Alternate Airport (OrigAltApt)"
-                    :rules="[rules.airportCode]"
-                    hint="Optional - 4-letter airport code (e.g., KCHA)"
-                    persistent-hint
-                  ></v-text-field>
-                </v-col>
-                
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="flight.aircraftId"
-                    label="Aircraft ID (AircraftId)"
+                    :items="destinationOptions"
                     :rules="[rules.required]"
                     required
-                    hint="Aircraft identifier (e.g., 321NEO)"
+                    hint="Select destination airport"
                     persistent-hint
-                  ></v-text-field>
+                  ></v-select>
+                </v-col>
+                
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="flight.aircraftId"
+                    label="Aircraft ID (AircraftId)"
+                    :items="aircraftOptions"
+                    :rules="[rules.required]"
+                    required
+                    hint="Select aircraft type"
+                    persistent-hint
+                  ></v-select>
                 </v-col>
                 
                 <v-col cols="12">
@@ -223,7 +215,6 @@
                   Departure: {{ formatDateTime(flight.departureTime) }}
                   <br>
                   Aircraft: {{ flight.aircraftId }}
-                  <span v-if="flight.originAltApt"> | Orig Alt: {{ flight.originAltApt }}</span>
                   <br v-if="flight.destAltApts && flight.destAltApts.length > 0">
                   <span v-if="flight.destAltApts && flight.destAltApts.length > 0">
                     Dest Alts: {{ flight.destAltApts.map(a => a.apt).join(', ') }}
@@ -282,6 +273,38 @@ const batchProgress = reactive({
   totalBatches: 0
 })
 
+// Dropdown options
+const destinationOptions = [
+  'KJFK', // New York JFK
+  'KATL', // Atlanta
+  'KLAX', // Los Angeles
+  'KORD', // Chicago O'Hare
+  'KDFW', // Dallas/Fort Worth
+  'KDEN', // Denver
+  'KSEA', // Seattle
+  'KLAS', // Las Vegas
+  'KMIA', // Miami
+  'KBOS', // Boston
+  'KSFO', // San Francisco
+  'KIAD', // Washington Dulles
+  'KPHX', // Phoenix
+  'KCLT', // Charlotte
+  'KDTW', // Detroit
+  'KPHL', // Philadelphia
+  'KLGA', // New York LaGuardia
+  'KBWI', // Baltimore
+  'KMSP', // Minneapolis
+  'KSLC'  // Salt Lake City
+]
+
+const aircraftOptions = [
+  '321NEO',
+  'A320',
+  'A321',
+  'A350',
+  'A380'
+]
+
 // Helper function to get default datetime-local value (current time + 1 hour)
 const getDefaultDateTime = () => {
   const date = new Date()
@@ -302,7 +325,6 @@ const getDefaultFlight = () => ({
   departureTime: getDefaultDateTime(),
   origin: 'KATL',
   destination: 'KJFK',
-  originAltApt: '',
   aircraftId: '321NEO',
   destAltApts: [],
   automated: true
@@ -348,7 +370,6 @@ const addFlight = async () => {
     departureTime: flight.departureTime,
     origin: flight.origin.toUpperCase(),
     destination: flight.destination.toUpperCase(),
-    originAltApt: flight.originAltApt ? flight.originAltApt.toUpperCase() : null,
     aircraftId: flight.aircraftId,
     destAltApts: destAltApts,
     automated: flight.automated
