@@ -82,6 +82,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from "vue";
 import { invokeLambda } from "../services/api";
+import batchApi from "../services/batchApi";
 import BatchSelector from "../components/BatchSelector.vue";
 import CreateBatchDialog from "../components/CreateBatchDialog.vue";
 import FlightForm from "../components/FlightForm.vue";
@@ -161,42 +162,32 @@ const snackbar = reactive({
 });
 
 // Batch management functions
-const generateBatchId = () => {
-  return `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-};
-
 const createNewBatch = () => {
   newBatchDialog.value = true;
 };
 
-const confirmCreateBatch = (batchName) => {
-  const batchId = generateBatchId();
-  const batch = {
-    id: batchId,
-    title: batchName,
-    flights: [],
-    createdAt: new Date().toISOString(),
-  };
-
-  batches.value[batchId] = batch;
-  currentBatchId.value = batchId;
-
-  // Save to localStorage
-  saveBatchesToStorage();
-
-  showSnackbar(`Batch "${batch.title}" created!`, "success");
+const confirmCreateBatch = async (batchName) => {
+  try {
+    const batch = await batchApi.createBatch(batchName);
+    batches.value[batch.id] = batch;
+    currentBatchId.value = batch.id;
+    
+    showSnackbar(`Batch "${batch.title}" created!`, "success");
+  } catch (error) {
+    console.error('Error creating batch:', error);
+    showSnackbar("Failed to create batch", "error");
+  }
 };
 
 const onBatchChange = (batchId) => {
   currentBatchId.value = batchId;
-  saveBatchesToStorage();
 };
 
-const deleteBatch = (batchId) => {
+const deleteBatch = async (batchId) => {
   if (!batches.value[batchId]) return;
 
   const batch = batches.value[batchId];
-  if (batch.flights.length > 0) {
+  if (batch.flights && batch.flights.length > 0) {
     showSnackbar(
       "Cannot delete batch with flights. Remove flights first.",
       "warning"
@@ -204,93 +195,99 @@ const deleteBatch = (batchId) => {
     return;
   }
 
-  delete batches.value[batchId];
-
-  // If deleted batch was current, select another or clear
-  if (currentBatchId.value === batchId) {
-    const remainingBatches = Object.values(batches.value);
-    currentBatchId.value =
-      remainingBatches.length > 0 ? remainingBatches[0].id : null;
-  }
-
-  saveBatchesToStorage();
-  showSnackbar(`Batch "${batch.title}" deleted`, "info");
-};
-
-// LocalStorage persistence
-const saveBatchesToStorage = () => {
   try {
-    localStorage.setItem("flightBatches", JSON.stringify(batches.value));
-    localStorage.setItem("currentBatchId", currentBatchId.value);
-  } catch (error) {
-    console.error("Error saving batches to localStorage:", error);
-  }
-};
+    await batchApi.deleteBatch(batchId);
+    delete batches.value[batchId];
 
-const loadBatchesFromStorage = () => {
-  try {
-    const saved = localStorage.getItem("flightBatches");
-    const savedCurrentId = localStorage.getItem("currentBatchId");
-
-    if (saved) {
-      batches.value = JSON.parse(saved);
+    // If deleted batch was current, select another or clear
+    if (currentBatchId.value === batchId) {
+      const remainingBatches = Object.values(batches.value);
+      currentBatchId.value =
+        remainingBatches.length > 0 ? remainingBatches[0].id : null;
     }
 
-    if (savedCurrentId && batches.value[savedCurrentId]) {
-      currentBatchId.value = savedCurrentId;
-    } else if (Object.keys(batches.value).length > 0) {
-      // Select first batch if current doesn't exist
-      currentBatchId.value = Object.values(batches.value)[0].id;
-    }
+    showSnackbar(`Batch "${batch.title}" deleted`, "info");
   } catch (error) {
-    console.error("Error loading batches from localStorage:", error);
+    console.error('Error deleting batch:', error);
+    showSnackbar("Failed to delete batch", "error");
   }
 };
 
-// Initialize with default batch if none exist
-onMounted(() => {
-  loadBatchesFromStorage();
+// Data loading
+const loadBatchesFromAPI = async () => {
+  try {
+    const batchData = await batchApi.getBatches();
+    batches.value = batchData;
+
+    // Set current batch to first available or null
+    const batchIds = Object.keys(batchData);
+    if (batchIds.length > 0) {
+      currentBatchId.value = batchIds[0];
+    } else {
+      currentBatchId.value = null;
+    }
+  } catch (error) {
+    console.error("Error loading batches from API:", error);
+    showSnackbar("Failed to load batches", "error");
+  }
+};
+
+// Initialize data
+onMounted(async () => {
+  await loadBatchesFromAPI();
 
   // Create default batch if none exist
   if (Object.keys(batches.value).length === 0) {
-    const defaultBatch = {
-      id: generateBatchId(),
-      title: "Default Batch",
-      flights: [],
-      createdAt: new Date().toISOString(),
-    };
-    batches.value[defaultBatch.id] = defaultBatch;
-    currentBatchId.value = defaultBatch.id;
-    saveBatchesToStorage();
+    try {
+      const defaultBatch = await batchApi.createBatch("Default Batch");
+      batches.value[defaultBatch.id] = defaultBatch;
+      currentBatchId.value = defaultBatch.id;
+    } catch (error) {
+      console.error("Error creating default batch:", error);
+    }
   }
 });
 
-const addFlight = (flightData) => {
+const addFlight = async (flightData) => {
   if (!currentBatch.value) {
     showSnackbar("Please select or create a batch first", "warning");
     return;
   }
 
-  currentBatch.value.flights.push({ ...flightData });
-  saveBatchesToStorage();
+  try {
+    const newFlight = await batchApi.addFlight(currentBatch.value.id, flightData);
+    currentBatch.value.flights.push(newFlight);
 
-  // Reset the form
-  if (flightFormRef.value) {
-    flightFormRef.value.reset();
+    // Reset the form
+    if (flightFormRef.value) {
+      flightFormRef.value.reset();
+    }
+
+    showSnackbar(`Flight added to "${currentBatch.value.title}"!`, "success");
+  } catch (error) {
+    console.error('Error adding flight:', error);
+    showSnackbar("Failed to add flight", "error");
   }
-
-  showSnackbar(`Flight added to "${currentBatch.value.title}"!`, "success");
 };
 
 const handleFormReset = () => {
   // Form reset is handled by the component itself
 };
 
-const removeFlight = (index) => {
+const removeFlight = async (index) => {
   if (!currentBatch.value) return;
-  currentBatch.value.flights.splice(index, 1);
-  saveBatchesToStorage();
-  showSnackbar("Flight removed", "info");
+  
+  const flight = currentBatch.value.flights[index];
+  if (!flight) return;
+
+  try {
+    await batchApi.deleteFlight(flight.id);
+    currentBatch.value.flights.splice(index, 1);
+    showSnackbar("Flight removed", "info");
+  } catch (error) {
+    console.error('Error removing flight:', error);
+    showSnackbar("Failed to remove flight", "error");
+  }
 };
 
 const handleEditFlight = ({ flight, index }) => {
@@ -299,15 +296,23 @@ const handleEditFlight = ({ flight, index }) => {
   editFlightDialog.value = true;
 };
 
-const handleSaveFlight = (flightData) => {
+const handleSaveFlight = async (flightData) => {
   if (!currentBatch.value || editingFlightIndex.value === null) return;
 
-  currentBatch.value.flights[editingFlightIndex.value] = { ...flightData };
-  saveBatchesToStorage();
-  showSnackbar("Flight updated successfully!", "success");
+  const flight = currentBatch.value.flights[editingFlightIndex.value];
+  if (!flight) return;
 
-  editingFlight.value = null;
-  editingFlightIndex.value = null;
+  try {
+    await batchApi.updateFlight(flight.id, flightData);
+    currentBatch.value.flights[editingFlightIndex.value] = { ...flight, ...flightData };
+    showSnackbar("Flight updated successfully!", "success");
+
+    editingFlight.value = null;
+    editingFlightIndex.value = null;
+  } catch (error) {
+    console.error('Error updating flight:', error);
+    showSnackbar("Failed to update flight", "error");
+  }
 };
 
 const submitFlights = async (size) => {
