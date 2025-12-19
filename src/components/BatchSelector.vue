@@ -8,7 +8,7 @@
       <div class="d-flex align-center" style="gap: 8px">
         <v-btn
           v-if="batchList.length > 0"
-          color="secondary"
+          color="primary"
           variant="elevated"
           @click="$emit('show-all-batches')"
           prepend-icon="mdi-view-grid"
@@ -33,7 +33,6 @@
         label="Select Active Batch"
         item-title="title"
         item-value="id"
-        return-object
         @update:model-value="handleBatchChange"
         hint="Select a batch to add flights to"
         persistent-hint
@@ -44,7 +43,6 @@
             <template v-slot:prepend>
               <v-icon icon="mdi-folder" class="mr-2"></v-icon>
             </template>
-            <v-list-item-title>{{ item.raw.title }}</v-list-item-title>
             <v-list-item-subtitle>
               {{ batches[item.raw.id]?.flights?.length || 0 }} flights
             </v-list-item-subtitle>
@@ -92,9 +90,9 @@ const batchList = computed(() => {
   return Object.values(props.batches);
 });
 
-const handleBatchChange = (batch) => {
-  if (batch && batch.id) {
-    emit("update:currentBatchId", batch.id);
+const handleBatchChange = (batchId) => {
+  if (batchId) {
+    emit("update:currentBatchId", batchId);
   }
 };
 </script>
