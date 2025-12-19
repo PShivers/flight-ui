@@ -1,7 +1,6 @@
 <template>
   <v-card class="sidebar-card">
     <v-card-title class="bg-primary text-white">
-      <v-icon icon="mdi-airplane" class="mr-2"></v-icon>
       {{ currentBatch.title }}
     </v-card-title>
 
