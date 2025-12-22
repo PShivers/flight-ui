@@ -1,7 +1,9 @@
 <template>
   <v-card class="sidebar-card">
     <v-card-title class="bg-primary text-white">
-      <span v-if="currentBatch.batch_number">{{ currentBatch.batch_number }} - </span>{{ currentBatch.title }}
+      <span v-if="currentBatch.batch_number"
+        >{{ currentBatch.batch_number }} - </span
+      >{{ currentBatch.title }}
     </v-card-title>
 
     <v-card-text class="sidebar-content">
@@ -65,7 +67,7 @@
           </template>
 
           <v-list-item-title>
-            Flight {{ flight.flightNumber }}
+            Flight {{ flight.flight_number }}
           </v-list-item-title>
 
           <v-list-item-subtitle>
@@ -107,11 +109,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits([
-  "submit-flights",
-  "remove-flight",
-  "edit-flight",
-]);
+const emit = defineEmits(["submit-flights", "remove-flight", "edit-flight"]);
 
 const formatDateTime = (dateTimeString) => {
   if (!dateTimeString) return "";

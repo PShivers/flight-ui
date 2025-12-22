@@ -12,14 +12,14 @@
       <v-form ref="form" v-model="valid">
         <v-row>
           <v-col cols="12" md="6">
-            <v-text-field
-              v-model="localFlight.flightNumber"
-              label="Flight Number (FltNum)"
-              :rules="[rules.required]"
-              required
-              hint="Flight number (e.g., 001, 123)"
-              persistent-hint
-            ></v-text-field>
+            <div class="mb-4">
+              <div class="text-caption text-medium-emphasis mb-1">
+                Flight Number (FltNum)
+              </div>
+              <div class="text-h6 font-weight-bold text-primary">
+                {{ localFlight.flightNumber }}
+              </div>
+            </div>
           </v-col>
 
           <v-col cols="12" md="6">
@@ -143,7 +143,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from "vue";
+import { ref, reactive, watch, computed } from "vue";
 
 const props = defineProps({
   currentBatch: {
@@ -165,6 +165,15 @@ const emit = defineEmits(["add-flight", "reset-form"]);
 const form = ref(null);
 const valid = ref(false);
 
+// Compute the next flight number based on current batch
+const nextFlightNumber = computed(() => {
+  if (!props.currentBatch || !props.currentBatch.batch_number) {
+    return "001";
+  }
+  const flightCount = props.currentBatch.flights?.length || 0;
+  return `${props.currentBatch.batch_number}-${flightCount + 1}`;
+});
+
 // Helper function to get default datetime-local value (current time + 1 hour)
 const getDefaultDateTime = () => {
   const date = new Date();
@@ -181,7 +190,7 @@ const getDefaultDateTime = () => {
 
 // Default values for flight form
 const getDefaultFlight = () => ({
-  flightNumber: "001",
+  flightNumber: nextFlightNumber.value,
   departureTime: getDefaultDateTime(),
   origin: "KATL",
   destination: "KJFK",
@@ -191,6 +200,11 @@ const getDefaultFlight = () => ({
 });
 
 const localFlight = reactive(getDefaultFlight());
+
+// Watch for changes in the next flight number and update automatically
+watch(nextFlightNumber, (newValue) => {
+  localFlight.flightNumber = newValue;
+});
 
 const rules = {
   required: (value) => !!value || "This field is required",
@@ -228,6 +242,8 @@ const handleAddFlight = async () => {
     destAltApts: destAltApts,
     automated: localFlight.automated,
   };
+
+  console.log("[FlightForm] Emitting flight data:", flightData);
 
   emit("add-flight", flightData);
 };

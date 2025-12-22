@@ -35,15 +35,16 @@ app.get('/api/batches', (req, res) => {
   try {
     const batches = statements.getAllBatches.all();
     const batchesWithFlights = {};
-    
+
     for (const batch of batches) {
       const flights = statements.getFlightsByBatchId.all(batch.id);
+
       batchesWithFlights[batch.id] = {
         ...batch,
         flights: flights
       };
     }
-    
+
     res.json(batchesWithFlights);
   } catch (error) {
     console.error('Error getting batches:', error);
@@ -58,9 +59,10 @@ app.get('/api/batches/:id', (req, res) => {
     if (!batch) {
       return res.status(404).json({ error: 'Batch not found' });
     }
-    
+
     const flights = statements.getFlightsByBatchId.all(batch.id);
-    res.json({ ...batch, flights });
+
+    res.json({ ...batch, flights: flights });
   } catch (error) {
     console.error('Error getting batch:', error);
     res.status(500).json({ error: 'Failed to get batch' });
@@ -138,32 +140,43 @@ app.delete('/api/batches/:id', (req, res) => {
 // Add flight to batch
 app.post('/api/batches/:batchId/flights', (req, res) => {
   try {
-    const { origin, destination, departureTime, arrivalTime, aircraftType } = req.body;
-    
+    const { flightNumber, origin, destination, departureTime, arrivalTime, aircraftType } = req.body;
+
+    console.log('[API] Received flight data:', { flightNumber, origin, destination, departureTime, arrivalTime, aircraftType });
+
+    if (!flightNumber) {
+      return res.status(400).json({ error: 'Flight number is required' });
+    }
     if (!origin || !destination) {
       return res.status(400).json({ error: 'Origin and destination are required' });
     }
-    
+
     // Check if batch exists
     const batch = statements.getBatchById.get(req.params.batchId);
     if (!batch) {
       return res.status(404).json({ error: 'Batch not found' });
     }
-    
+
     const flightId = generateId();
+
+    console.log('[API] Inserting flight with:', { flightId, batchId: req.params.batchId, flightNumber, origin, destination });
+
     statements.insertFlight.run(
       flightId,
       req.params.batchId,
+      flightNumber,
       origin,
       destination,
       departureTime || null,
       arrivalTime || null,
       aircraftType || null
     );
-    
+
     const flights = statements.getFlightsByBatchId.all(req.params.batchId);
     const newFlight = flights.find(f => f.id === flightId);
-    
+
+    console.log('[API] Returning flight:', newFlight);
+
     res.status(201).json(newFlight);
   } catch (error) {
     console.error('Error adding flight:', error);
@@ -174,13 +187,17 @@ app.post('/api/batches/:batchId/flights', (req, res) => {
 // Update flight
 app.put('/api/flights/:id', (req, res) => {
   try {
-    const { origin, destination, departureTime, arrivalTime, aircraftType } = req.body;
-    
+    const { flightNumber, origin, destination, departureTime, arrivalTime, aircraftType } = req.body;
+
+    if (!flightNumber) {
+      return res.status(400).json({ error: 'Flight number is required' });
+    }
     if (!origin || !destination) {
       return res.status(400).json({ error: 'Origin and destination are required' });
     }
-    
+
     const result = statements.updateFlight.run(
+      flightNumber,
       origin,
       destination,
       departureTime || null,
@@ -188,11 +205,11 @@ app.put('/api/flights/:id', (req, res) => {
       aircraftType || null,
       req.params.id
     );
-    
+
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Flight not found' });
     }
-    
+
     res.json({ message: 'Flight updated successfully' });
   } catch (error) {
     console.error('Error updating flight:', error);

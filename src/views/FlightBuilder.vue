@@ -273,11 +273,16 @@ const addFlight = async (flightData) => {
     return;
   }
 
+  console.log("[FlightBuilder] Received flight data:", flightData);
+
   try {
     const newFlight = await batchApi.addFlight(
       currentBatch.value.id,
       flightData
     );
+
+    console.log("[FlightBuilder] Flight returned from API:", newFlight);
+
     currentBatch.value.flights.push(newFlight);
 
     // Reset the form
