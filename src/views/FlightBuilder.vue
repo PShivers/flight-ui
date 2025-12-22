@@ -17,21 +17,39 @@
     <!-- Main Content with Sidebar -->
     <v-row>
       <!-- Batch Sidebar (Left) -->
-      <v-col v-if="currentBatch" cols="12" md="4" lg="3">
+      <v-col cols="12" md="4" lg="3">
         <BatchSidebar
+          v-if="currentBatch"
           :current-batch="currentBatch"
           :is-submitting="isSubmitting"
           :batch-progress="batchProgress"
-          :batch-size="batchSize"
           @submit-flights="submitFlights"
           @remove-flight="removeFlight"
           @edit-flight="handleEditFlight"
-          @update:batchSize="batchSize = $event"
         />
+        <v-card v-else>
+          <v-card-text class="text-center pa-8">
+            <v-icon size="64" color="grey-lighten-1" class="mb-4">
+              mdi-folder-open-outline
+            </v-icon>
+            <div class="text-h6 mb-2">No Batch Selected</div>
+            <div class="text-body-2 text-grey mb-4">
+              Create a new batch to get started with building flights
+            </div>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              @click="createNewBatch"
+            >
+              <v-icon start>mdi-plus</v-icon>
+              Create Batch
+            </v-btn>
+          </v-card-text>
+        </v-card>
       </v-col>
 
       <!-- Flight Form (Right) -->
-      <v-col cols="12" :md="currentBatch ? 8 : 12" :lg="currentBatch ? 9 : 12">
+      <v-col cols="12" md="8" lg="9">
         <FlightForm
           ref="flightFormRef"
           :current-batch="currentBatch"
@@ -92,7 +110,6 @@ import AllBatchesDialog from "../components/AllBatchesDialog.vue";
 
 const flightFormRef = ref(null);
 const isSubmitting = ref(false);
-const batchSize = ref(10);
 const currentBatchId = ref(null);
 const batches = ref({});
 const newBatchDialog = ref(false);
@@ -111,8 +128,6 @@ const batchProgress = reactive({
   show: false,
   message: "",
   type: "info",
-  currentBatch: 0,
-  totalBatches: 0,
 });
 
 // Dropdown options
@@ -171,10 +186,10 @@ const confirmCreateBatch = async (batchName) => {
     const batch = await batchApi.createBatch(batchName);
     batches.value[batch.id] = batch;
     currentBatchId.value = batch.id;
-    
+
     showSnackbar(`Batch "${batch.title}" created!`, "success");
   } catch (error) {
-    console.error('Error creating batch:', error);
+    console.error("Error creating batch:", error);
     showSnackbar("Failed to create batch", "error");
   }
 };
@@ -208,7 +223,7 @@ const deleteBatch = async (batchId) => {
 
     showSnackbar(`Batch "${batch.title}" deleted`, "info");
   } catch (error) {
-    console.error('Error deleting batch:', error);
+    console.error("Error deleting batch:", error);
     showSnackbar("Failed to delete batch", "error");
   }
 };
@@ -255,7 +270,10 @@ const addFlight = async (flightData) => {
   }
 
   try {
-    const newFlight = await batchApi.addFlight(currentBatch.value.id, flightData);
+    const newFlight = await batchApi.addFlight(
+      currentBatch.value.id,
+      flightData
+    );
     currentBatch.value.flights.push(newFlight);
 
     // Reset the form
@@ -265,7 +283,7 @@ const addFlight = async (flightData) => {
 
     showSnackbar(`Flight added to "${currentBatch.value.title}"!`, "success");
   } catch (error) {
-    console.error('Error adding flight:', error);
+    console.error("Error adding flight:", error);
     showSnackbar("Failed to add flight", "error");
   }
 };
@@ -276,7 +294,7 @@ const handleFormReset = () => {
 
 const removeFlight = async (index) => {
   if (!currentBatch.value) return;
-  
+
   const flight = currentBatch.value.flights[index];
   if (!flight) return;
 
@@ -285,7 +303,7 @@ const removeFlight = async (index) => {
     currentBatch.value.flights.splice(index, 1);
     showSnackbar("Flight removed", "info");
   } catch (error) {
-    console.error('Error removing flight:', error);
+    console.error("Error removing flight:", error);
     showSnackbar("Failed to remove flight", "error");
   }
 };
@@ -304,102 +322,50 @@ const handleSaveFlight = async (flightData) => {
 
   try {
     await batchApi.updateFlight(flight.id, flightData);
-    currentBatch.value.flights[editingFlightIndex.value] = { ...flight, ...flightData };
+    currentBatch.value.flights[editingFlightIndex.value] = {
+      ...flight,
+      ...flightData,
+    };
     showSnackbar("Flight updated successfully!", "success");
 
     editingFlight.value = null;
     editingFlightIndex.value = null;
   } catch (error) {
-    console.error('Error updating flight:', error);
+    console.error("Error updating flight:", error);
     showSnackbar("Failed to update flight", "error");
   }
 };
 
-const submitFlights = async (size) => {
+const submitFlights = async () => {
   if (!currentBatch.value || currentBatch.value.flights.length === 0) return;
 
-  // Update batchSize to keep it in sync
-  batchSize.value = Math.max(1, Math.floor(size) || 10);
-
   const flightsToSubmit = currentBatch.value.flights;
-  const batchSizeValue = batchSize.value;
-  const batches = [];
-
-  // Split flights into batches
-  for (let i = 0; i < flightsToSubmit.length; i += batchSizeValue) {
-    batches.push(flightsToSubmit.slice(i, i + batchSizeValue));
-  }
 
   isSubmitting.value = true;
-  batchProgress.totalBatches = batches.length;
   batchProgress.show = true;
   batchProgress.type = "info";
-
-  let successCount = 0;
-  let errorCount = 0;
+  batchProgress.message = `Sending ${flightsToSubmit.length} flight(s)...`;
 
   try {
-    for (let i = 0; i < batches.length; i++) {
-      batchProgress.currentBatch = i + 1;
-      batchProgress.message = `Sending batch ${i + 1} of ${batches.length} (${
-        batches[i].length
-      } flights)...`;
+    const response = await invokeLambda(flightsToSubmit);
+    console.log("Submission response:", response);
 
-      try {
-        const response = await invokeLambda(batches[i]);
-        successCount += batches[i].length;
-        console.log(`Batch ${i + 1} response:`, response);
-
-        // If this is the last batch, show final success message
-        if (i === batches.length - 1) {
-          if (errorCount === 0) {
-            batchProgress.message = `All ${successCount} flights sent successfully!`;
-            batchProgress.type = "success";
-            showSnackbar(
-              `Successfully sent ${successCount} flights in ${batches.length} batch(es)!`,
-              "success"
-            );
-          } else {
-            batchProgress.message = `Completed: ${successCount} succeeded, ${errorCount} failed`;
-            batchProgress.type = "warning";
-            showSnackbar(
-              `Completed with errors: ${successCount} succeeded, ${errorCount} failed`,
-              "warning"
-            );
-          }
-        }
-      } catch (error) {
-        errorCount += batches[i].length;
-        console.error(`Error in batch ${i + 1}:`, error);
-
-        // Continue with next batch even if one fails
-        if (i === batches.length - 1) {
-          if (successCount > 0) {
-            batchProgress.message = `Completed with errors: ${successCount} succeeded, ${errorCount} failed`;
-            batchProgress.type = "warning";
-            showSnackbar(
-              `Some batches failed: ${successCount} succeeded, ${errorCount} failed`,
-              "warning"
-            );
-          } else {
-            batchProgress.message = `All batches failed. Last error: ${
-              error.response?.data?.message || error.message
-            }`;
-            batchProgress.type = "error";
-            showSnackbar(
-              error.response?.data?.message ||
-                "Error sending flights to Lambda",
-              "error"
-            );
-          }
-        }
-      }
-    }
+    batchProgress.message = `All ${flightsToSubmit.length} flight(s) sent successfully!`;
+    batchProgress.type = "success";
+    showSnackbar(
+      `Successfully sent ${flightsToSubmit.length} flight(s)!`,
+      "success"
+    );
   } catch (error) {
-    batchProgress.message = `Unexpected error: ${error.message}`;
+    console.error("Error submitting flights:", error);
+    batchProgress.message = `Failed to send flights: ${
+      error.response?.data?.message || error.message
+    }`;
     batchProgress.type = "error";
-    showSnackbar("Unexpected error occurred", "error");
-    console.error("Unexpected error:", error);
+    showSnackbar(
+      error.response?.data?.message || "Error sending flights to Lambda",
+      "error"
+    );
   } finally {
     isSubmitting.value = false;
   }
