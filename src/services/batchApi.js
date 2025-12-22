@@ -35,10 +35,14 @@ class BatchApiService {
     return this.request(`/batches/${id}`);
   }
 
-  async createBatch(title) {
+  async getNextBatchNumber() {
+    return this.request('/batches/next-number');
+  }
+
+  async createBatch(title, batchNumber) {
     return this.request('/batches', {
       method: 'POST',
-      body: JSON.stringify({ title }),
+      body: JSON.stringify({ title, batchNumber }),
     });
   }
 

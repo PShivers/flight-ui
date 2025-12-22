@@ -14,6 +14,22 @@ const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9
 
 // BATCH ROUTES
 
+// Get next available batch number
+app.get('/api/batches/next-number', (req, res) => {
+  try {
+    const result = statements.getMaxBatchNumber.get();
+    const maxBatchNumber = result.max || 99;
+
+    // If we've reached 999, wrap back to 100
+    let nextNumber = maxBatchNumber >= 999 ? 100 : maxBatchNumber + 1;
+
+    res.json({ nextBatchNumber: nextNumber });
+  } catch (error) {
+    console.error('Error getting next batch number:', error);
+    res.status(500).json({ error: 'Failed to get next batch number' });
+  }
+});
+
 // Get all batches with flight counts
 app.get('/api/batches', (req, res) => {
   try {
@@ -54,18 +70,25 @@ app.get('/api/batches/:id', (req, res) => {
 // Create batch
 app.post('/api/batches', (req, res) => {
   try {
-    const { title } = req.body;
+    const { title, batchNumber } = req.body;
     if (!title) {
       return res.status(400).json({ error: 'Title is required' });
     }
-    
+    if (!batchNumber) {
+      return res.status(400).json({ error: 'Batch number is required' });
+    }
+
     const id = generateId();
-    statements.insertBatch.run(id, title);
-    
+    statements.insertBatch.run(id, batchNumber, title);
+
     const batch = statements.getBatchById.get(id);
     res.status(201).json({ ...batch, flights: [] });
   } catch (error) {
     console.error('Error creating batch:', error);
+    // Check for unique constraint violation
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return res.status(409).json({ error: 'Batch number already exists' });
+    }
     res.status(500).json({ error: 'Failed to create batch' });
   }
 });

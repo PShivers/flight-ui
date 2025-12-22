@@ -183,11 +183,14 @@ const createNewBatch = () => {
 
 const confirmCreateBatch = async (batchName) => {
   try {
-    const batch = await batchApi.createBatch(batchName);
+    // Get next batch number from backend
+    const { nextBatchNumber } = await batchApi.getNextBatchNumber();
+
+    const batch = await batchApi.createBatch(batchName, nextBatchNumber);
     batches.value[batch.id] = batch;
     currentBatchId.value = batch.id;
 
-    showSnackbar(`Batch "${batch.title}" created!`, "success");
+    showSnackbar(`Batch "${batch.title}" (${batch.batch_number}) created!`, "success");
   } catch (error) {
     console.error("Error creating batch:", error);
     showSnackbar("Failed to create batch", "error");
@@ -254,7 +257,8 @@ onMounted(async () => {
   // Create default batch if none exist
   if (Object.keys(batches.value).length === 0) {
     try {
-      const defaultBatch = await batchApi.createBatch("Default Batch");
+      const { nextBatchNumber } = await batchApi.getNextBatchNumber();
+      const defaultBatch = await batchApi.createBatch("Default Batch", nextBatchNumber);
       batches.value[defaultBatch.id] = defaultBatch;
       currentBatchId.value = defaultBatch.id;
     } catch (error) {

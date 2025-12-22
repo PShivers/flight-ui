@@ -17,6 +17,7 @@ const db = new Database(dbPath);
 db.exec(`
   CREATE TABLE IF NOT EXISTS batches (
     id TEXT PRIMARY KEY,
+    batch_number INTEGER UNIQUE NOT NULL,
     title TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )
@@ -41,7 +42,8 @@ const statements = {
   // Batches
   getAllBatches: db.prepare('SELECT * FROM batches ORDER BY created_at DESC'),
   getBatchById: db.prepare('SELECT * FROM batches WHERE id = ?'),
-  insertBatch: db.prepare('INSERT INTO batches (id, title) VALUES (?, ?)'),
+  getMaxBatchNumber: db.prepare('SELECT MAX(batch_number) as max FROM batches'),
+  insertBatch: db.prepare('INSERT INTO batches (id, batch_number, title) VALUES (?, ?, ?)'),
   updateBatch: db.prepare('UPDATE batches SET title = ? WHERE id = ?'),
   deleteBatch: db.prepare('DELETE FROM batches WHERE id = ?'),
   

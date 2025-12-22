@@ -82,7 +82,7 @@ const currentBatch = computed(() => {
 const batchOptions = computed(() => {
   return Object.values(props.batches).map((batch) => ({
     id: batch.id,
-    title: batch.title,
+    title: batch.batch_number ? `${batch.batch_number} - ${batch.title}` : batch.title,
   }));
 });
 
