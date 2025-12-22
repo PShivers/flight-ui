@@ -18,27 +18,13 @@
           color="success"
           :disabled="currentBatch.flights.length === 0 || isSubmitting"
           :loading="isSubmitting"
-          @click="$emit('submit-flights', batchSize)"
+          @click="$emit('submit-flights')"
           size="small"
         >
           <v-icon icon="mdi-send" class="mr-1"></v-icon>
           Send
         </v-btn>
       </div>
-
-      <v-text-field
-        v-model.number="localBatchSize"
-        label="Batch Size"
-        type="number"
-        min="1"
-        :max="currentBatch.flights.length"
-        density="compact"
-        class="mb-4"
-        hint="Flights per batch"
-        persistent-hint
-        :disabled="isSubmitting"
-        @update:model-value="$emit('update:batchSize', localBatchSize)"
-      ></v-text-field>
 
       <v-alert
         v-if="batchProgress.show"
@@ -50,19 +36,7 @@
       >
         <div class="text-body-2">
           {{ batchProgress.message }}
-          <span v-if="batchProgress.currentBatch && batchProgress.totalBatches">
-            (Batch {{ batchProgress.currentBatch }} of
-            {{ batchProgress.totalBatches }})
-          </span>
         </div>
-        <v-progress-linear
-          v-if="batchProgress.totalBatches > 1"
-          :model-value="
-            (batchProgress.currentBatch / batchProgress.totalBatches) * 100
-          "
-          color="primary"
-          class="mt-2"
-        ></v-progress-linear>
       </v-alert>
 
       <v-divider class="mb-4"></v-divider>
@@ -118,8 +92,6 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
-
 const props = defineProps({
   currentBatch: {
     type: Object,
@@ -133,27 +105,13 @@ const props = defineProps({
     type: Object,
     required: true,
   },
-  batchSize: {
-    type: Number,
-    default: 10,
-  },
 });
 
 const emit = defineEmits([
   "submit-flights",
   "remove-flight",
   "edit-flight",
-  "update:batchSize",
 ]);
-
-const localBatchSize = ref(props.batchSize);
-
-watch(
-  () => props.batchSize,
-  (newVal) => {
-    localBatchSize.value = newVal;
-  }
-);
 
 const formatDateTime = (dateTimeString) => {
   if (!dateTimeString) return "";
