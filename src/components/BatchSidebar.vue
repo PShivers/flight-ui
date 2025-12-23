@@ -67,7 +67,7 @@
           </template>
 
           <v-list-item-title>
-            Flight {{ flight.flight_number }}
+            Flight {{ flight.flightNumber }}
           </v-list-item-title>
 
           <v-list-item-subtitle>
