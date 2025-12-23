@@ -310,7 +310,30 @@ const removeFlight = async (index) => {
   try {
     await batchApi.deleteFlight(flight.id);
     currentBatch.value.flights.splice(index, 1);
-    showSnackbar("Flight removed", "info");
+
+    // Renumber all remaining flights sequentially
+    const batchNumber = currentBatch.value.batchNumber;
+    for (let i = 0; i < currentBatch.value.flights.length; i++) {
+      const newFlightNumber = `${batchNumber}-${i + 1}`;
+      const flightToUpdate = currentBatch.value.flights[i];
+
+      // Only update if the flight number has changed
+      if (flightToUpdate.flightNumber !== newFlightNumber) {
+        flightToUpdate.flightNumber = newFlightNumber;
+
+        // Update in the database
+        await batchApi.updateFlight(flightToUpdate.id, {
+          flightNumber: newFlightNumber,
+          origin: flightToUpdate.origin,
+          destination: flightToUpdate.destination,
+          departureTime: flightToUpdate.departureTime,
+          arrivalTime: flightToUpdate.arrivalTime,
+          aircraftType: flightToUpdate.aircraftType,
+        });
+      }
+    }
+
+    showSnackbar("Flight removed and flights renumbered", "info");
   } catch (error) {
     console.error("Error removing flight:", error);
     showSnackbar("Failed to remove flight", "error");
