@@ -167,11 +167,11 @@ const valid = ref(false);
 
 // Compute the next flight number based on current batch
 const nextFlightNumber = computed(() => {
-  if (!props.currentBatch || !props.currentBatch.batch_number) {
+  if (!props.currentBatch || !props.currentBatch.batchNumber) {
     return "001";
   }
   const flightCount = props.currentBatch.flights?.length || 0;
-  return `${props.currentBatch.batch_number}-${flightCount + 1}`;
+  return `${props.currentBatch.batchNumber}-${flightCount + 1}`;
 });
 
 // Helper function to get default datetime-local value (current time + 1 hour)

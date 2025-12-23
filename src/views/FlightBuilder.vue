@@ -190,7 +190,7 @@ const confirmCreateBatch = async (batchName) => {
     batches.value[batch.id] = batch;
     currentBatchId.value = batch.id;
 
-    showSnackbar(`Batch "${batch.title}" (${batch.batch_number}) created!`, "success");
+    showSnackbar(`Batch "${batch.title}" (${batch.batchNumber}) created!`, "success");
   } catch (error) {
     console.error("Error creating batch:", error);
     showSnackbar("Failed to create batch", "error");

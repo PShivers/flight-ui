@@ -1,8 +1,8 @@
 <template>
   <v-card class="sidebar-card">
     <v-card-title class="bg-primary text-white">
-      <span v-if="currentBatch.batch_number"
-        >{{ currentBatch.batch_number }} - </span
+      <span v-if="currentBatch.batchNumber"
+        >{{ currentBatch.batchNumber }} - </span
       >{{ currentBatch.title }}
     </v-card-title>
 

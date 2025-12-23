@@ -58,7 +58,7 @@
                     class="mr-2"
                   ></v-icon>
                   <span class="text-body-1">
-                    <span v-if="batch.batch_number">{{ batch.batch_number }} - </span>{{ batch.title }}
+                    <span v-if="batch.batchNumber">{{ batch.batchNumber }} - </span>{{ batch.title }}
                   </span>
                 </div>
                 <v-btn
