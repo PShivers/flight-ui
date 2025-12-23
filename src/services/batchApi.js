@@ -70,16 +70,10 @@ class BatchApiService {
       aircraftType: flight.aircraftType,
     };
 
-    console.log("[BatchAPI] Sending flight to API:", payload);
-
-    const result = await this.request(`/batches/${batchId}/flights`, {
+    return this.request(`/batches/${batchId}/flights`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
-
-    console.log("[BatchAPI] Response from API:", result);
-
-    return result;
   }
 
   async updateFlight(flightId, flight) {

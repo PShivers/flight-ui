@@ -1,9 +1,9 @@
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      Build Flight
+      {{ isEditing ? 'Edit Flight' : 'Build Flight' }}
       <v-chip v-if="currentBatch" size="small" color="primary" class="ml-2">
-        Adding to: {{ currentBatch.title }}
+        {{ isEditing ? 'Editing in' : 'Adding to' }}: {{ currentBatch.title }}
       </v-chip>
     </v-card-title>
 
@@ -124,17 +124,31 @@
 
         <div class="mt-4">
           <v-btn
+            v-if="isEditing"
+            color="secondary"
+            variant="outlined"
+            @click="handleCancel"
+            class="mr-2"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            v-else
+            color="secondary"
+            variant="outlined"
+            @click="handleReset"
+            class="mr-2"
+          >
+            Reset Form
+          </v-btn>
+
+          <v-btn
             color="primary"
             :disabled="!valid || !currentBatch"
             @click="handleAddFlight"
-            class="mr-2"
           >
-            <v-icon icon="mdi-plus" class="mr-1"></v-icon>
-            Add Flight to Batch
-          </v-btn>
-
-          <v-btn color="secondary" variant="outlined" @click="handleReset">
-            Reset Form
+            <v-icon :icon="isEditing ? 'mdi-content-save' : 'mdi-plus'" class="mr-1"></v-icon>
+            {{ isEditing ? 'Update Flight' : 'Add Flight to Batch' }}
           </v-btn>
         </div>
       </v-form>
@@ -164,6 +178,7 @@ const emit = defineEmits(["add-flight", "reset-form"]);
 
 const form = ref(null);
 const valid = ref(false);
+const isEditing = ref(false);
 
 // Compute the next flight number based on current batch
 const nextFlightNumber = computed(() => {
@@ -245,20 +260,51 @@ const handleAddFlight = async () => {
     automated: localFlight.automated,
   };
 
-  console.log("[FlightForm] Emitting flight data:", flightData);
-
   emit("add-flight", flightData);
 };
 
 const handleReset = () => {
+  isEditing.value = false;
   Object.assign(localFlight, getDefaultFlight());
   form.value?.resetValidation();
   emit("reset-form");
 };
 
-// Expose reset method for parent
+const handleCancel = () => {
+  isEditing.value = false;
+  Object.assign(localFlight, getDefaultFlight());
+  form.value?.resetValidation();
+  emit("reset-form");
+};
+
+// Load flight data for editing
+const loadFlight = (flight) => {
+  isEditing.value = true;
+
+  // Convert datetime to datetime-local format
+  const date = new Date(flight.departureTime);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const datetimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+  Object.assign(localFlight, {
+    flightNumber: flight.flightNumber || "",
+    departureTime: datetimeLocal,
+    origin: flight.origin || "",
+    destination: flight.destination || "",
+    aircraftId: flight.aircraftId || flight.aircraftType || "",
+    destAltApts: flight.destAltApts ? [...flight.destAltApts] : [],
+    automated: flight.automated ?? true,
+  });
+};
+
+// Expose methods for parent
 defineExpose({
   reset: handleReset,
+  loadFlight,
 });
 </script>
 

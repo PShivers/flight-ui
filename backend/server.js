@@ -142,8 +142,6 @@ app.post('/api/batches/:batchId/flights', (req, res) => {
   try {
     const { flightNumber, origin, destination, departureTime, arrivalTime, aircraftType } = req.body;
 
-    console.log('[API] Received flight data:', { flightNumber, origin, destination, departureTime, arrivalTime, aircraftType });
-
     if (!flightNumber) {
       return res.status(400).json({ error: 'Flight number is required' });
     }
@@ -159,8 +157,6 @@ app.post('/api/batches/:batchId/flights', (req, res) => {
 
     const flightId = generateId();
 
-    console.log('[API] Inserting flight with:', { flightId, batchId: req.params.batchId, flightNumber, origin, destination });
-
     statements.insertFlight.run(
       flightId,
       req.params.batchId,
@@ -174,8 +170,6 @@ app.post('/api/batches/:batchId/flights', (req, res) => {
 
     const flights = statements.getFlightsByBatchId.all(req.params.batchId);
     const newFlight = flights.find(f => f.id === flightId);
-
-    console.log('[API] Returning flight:', newFlight);
 
     res.status(201).json(newFlight);
   } catch (error) {

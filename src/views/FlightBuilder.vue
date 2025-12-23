@@ -77,15 +77,6 @@
     <!-- Create Batch Dialog -->
     <CreateBatchDialog v-model="newBatchDialog" @create="confirmCreateBatch" />
 
-    <!-- Edit Flight Dialog -->
-    <EditFlightDialog
-      v-model="editFlightDialog"
-      :flight="editingFlight"
-      :destination-options="destinationOptions"
-      :aircraft-options="aircraftOptions"
-      @save="handleSaveFlight"
-    />
-
     <!-- All Batches Dialog -->
     <AllBatchesDialog
       v-model="allBatchesDialog"
@@ -105,7 +96,6 @@ import BatchSelector from "../components/BatchSelector.vue";
 import CreateBatchDialog from "../components/CreateBatchDialog.vue";
 import FlightForm from "../components/FlightForm.vue";
 import BatchSidebar from "../components/BatchSidebar.vue";
-import EditFlightDialog from "../components/EditFlightDialog.vue";
 import AllBatchesDialog from "../components/AllBatchesDialog.vue";
 
 const flightFormRef = ref(null);
@@ -114,9 +104,7 @@ const currentBatchId = ref(null);
 const batches = ref({});
 const newBatchDialog = ref(false);
 const allBatchesDialog = ref(false);
-const editFlightDialog = ref(false);
-const editingFlight = ref(null);
-const editingFlightIndex = ref(null);
+const editingFlightId = ref(null);
 
 // Computed properties
 const currentBatch = computed(() => {
@@ -273,32 +261,50 @@ const addFlight = async (flightData) => {
     return;
   }
 
-  console.log("[FlightBuilder] Received flight data:", flightData);
-
   try {
-    const newFlight = await batchApi.addFlight(
-      currentBatch.value.id,
-      flightData
-    );
+    // Check if we're editing an existing flight
+    if (editingFlightId.value) {
+      // Update existing flight
+      await batchApi.updateFlight(editingFlightId.value, flightData);
 
-    console.log("[FlightBuilder] Flight returned from API:", newFlight);
+      // Find and update the flight in the local array
+      const flightIndex = currentBatch.value.flights.findIndex(
+        f => f.id === editingFlightId.value
+      );
+      if (flightIndex !== -1) {
+        currentBatch.value.flights[flightIndex] = {
+          ...currentBatch.value.flights[flightIndex],
+          ...flightData,
+        };
+      }
 
-    currentBatch.value.flights.push(newFlight);
+      showSnackbar("Flight updated successfully!", "success");
+      editingFlightId.value = null;
+    } else {
+      // Add new flight
+      const newFlight = await batchApi.addFlight(
+        currentBatch.value.id,
+        flightData
+      );
+
+      currentBatch.value.flights.push(newFlight);
+
+      showSnackbar(`Flight added to "${currentBatch.value.title}"!`, "success");
+    }
 
     // Reset the form
     if (flightFormRef.value) {
       flightFormRef.value.reset();
     }
-
-    showSnackbar(`Flight added to "${currentBatch.value.title}"!`, "success");
   } catch (error) {
-    console.error("Error adding flight:", error);
-    showSnackbar("Failed to add flight", "error");
+    console.error("Error saving flight:", error);
+    showSnackbar("Failed to save flight", "error");
   }
 };
 
 const handleFormReset = () => {
-  // Form reset is handled by the component itself
+  // Clear editing state when form is reset or cancelled
+  editingFlightId.value = null;
 };
 
 const removeFlight = async (index) => {
@@ -340,33 +346,14 @@ const removeFlight = async (index) => {
   }
 };
 
-const handleEditFlight = ({ flight, index }) => {
-  editingFlight.value = flight;
-  editingFlightIndex.value = index;
-  editFlightDialog.value = true;
-};
-
-const handleSaveFlight = async (flightData) => {
-  if (!currentBatch.value || editingFlightIndex.value === null) return;
-
-  const flight = currentBatch.value.flights[editingFlightIndex.value];
-  if (!flight) return;
-
-  try {
-    await batchApi.updateFlight(flight.id, flightData);
-    currentBatch.value.flights[editingFlightIndex.value] = {
-      ...flight,
-      ...flightData,
-    };
-    showSnackbar("Flight updated successfully!", "success");
-
-    editingFlight.value = null;
-    editingFlightIndex.value = null;
-  } catch (error) {
-    console.error("Error updating flight:", error);
-    showSnackbar("Failed to update flight", "error");
+const handleEditFlight = ({ flight }) => {
+  // Load the flight data into the form
+  editingFlightId.value = flight.id;
+  if (flightFormRef.value) {
+    flightFormRef.value.loadFlight(flight);
   }
 };
+
 
 const submitFlights = async () => {
   if (!currentBatch.value || currentBatch.value.flights.length === 0) return;
@@ -379,8 +366,7 @@ const submitFlights = async () => {
   batchProgress.message = `Sending ${flightsToSubmit.length} flight(s)...`;
 
   try {
-    const response = await invokeLambda(flightsToSubmit);
-    console.log("Submission response:", response);
+    await invokeLambda(flightsToSubmit);
 
     batchProgress.message = `All ${flightsToSubmit.length} flight(s) sent successfully!`;
     batchProgress.type = "success";
