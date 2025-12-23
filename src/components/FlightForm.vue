@@ -169,8 +169,25 @@ const nextFlightNumber = computed(() => {
   if (!props.currentBatch || !props.currentBatch.batchNumber) {
     return "001";
   }
-  const flightCount = props.currentBatch.flights?.length || 0;
-  return `${props.currentBatch.batchNumber}-${flightCount + 1}`;
+
+  // Find the highest flight number in the batch to avoid duplicates
+  const flights = props.currentBatch.flights || [];
+  let maxFlightNum = 0;
+
+  for (const flight of flights) {
+    if (flight.flightNumber) {
+      // Extract the number after the dash (e.g., "100-3" -> 3)
+      const parts = flight.flightNumber.split('-');
+      if (parts.length === 2) {
+        const num = parseInt(parts[1], 10);
+        if (!isNaN(num) && num > maxFlightNum) {
+          maxFlightNum = num;
+        }
+      }
+    }
+  }
+
+  return `${props.currentBatch.batchNumber}-${maxFlightNum + 1}`;
 });
 
 // Helper function to get default datetime-local value (current time + 1 hour)
