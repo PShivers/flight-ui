@@ -57,7 +57,9 @@
                     "
                     class="mr-2"
                   ></v-icon>
-                  <span class="text-body-1">{{ batch.title }}</span>
+                  <span class="text-body-1">
+                    <span v-if="batch.batchNumber">{{ batch.batchNumber }} - </span>{{ batch.title }}
+                  </span>
                 </div>
                 <v-btn
                   icon="mdi-delete"

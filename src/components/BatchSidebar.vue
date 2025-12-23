@@ -1,8 +1,9 @@
 <template>
   <v-card class="sidebar-card">
     <v-card-title class="bg-primary text-white">
-      <v-icon icon="mdi-airplane" class="mr-2"></v-icon>
-      {{ currentBatch.title }}
+      <span v-if="currentBatch.batchNumber"
+        >{{ currentBatch.batchNumber }} - </span
+      >{{ currentBatch.title }}
     </v-card-title>
 
     <v-card-text class="sidebar-content">
@@ -19,27 +20,13 @@
           color="success"
           :disabled="currentBatch.flights.length === 0 || isSubmitting"
           :loading="isSubmitting"
-          @click="$emit('submit-flights', batchSize)"
+          @click="$emit('submit-flights')"
           size="small"
         >
           <v-icon icon="mdi-send" class="mr-1"></v-icon>
           Send
         </v-btn>
       </div>
-
-      <v-text-field
-        v-model.number="localBatchSize"
-        label="Batch Size"
-        type="number"
-        min="1"
-        :max="currentBatch.flights.length"
-        density="compact"
-        class="mb-4"
-        hint="Flights per batch"
-        persistent-hint
-        :disabled="isSubmitting"
-        @update:model-value="$emit('update:batchSize', localBatchSize)"
-      ></v-text-field>
 
       <v-alert
         v-if="batchProgress.show"
@@ -51,19 +38,7 @@
       >
         <div class="text-body-2">
           {{ batchProgress.message }}
-          <span v-if="batchProgress.currentBatch && batchProgress.totalBatches">
-            (Batch {{ batchProgress.currentBatch }} of
-            {{ batchProgress.totalBatches }})
-          </span>
         </div>
-        <v-progress-linear
-          v-if="batchProgress.totalBatches > 1"
-          :model-value="
-            (batchProgress.currentBatch / batchProgress.totalBatches) * 100
-          "
-          color="primary"
-          class="mt-2"
-        ></v-progress-linear>
       </v-alert>
 
       <v-divider class="mb-4"></v-divider>
@@ -82,10 +57,10 @@
       <v-list v-else density="compact">
         <v-list-item
           v-for="(flight, index) in currentBatch.flights"
-          :key="index"
+          :key="flight.id || index"
           class="mb-2"
-          @click="$emit('edit-flight', { flight, index })"
-          style="cursor: pointer"
+          @click="isDeleting ? null : $emit('edit-flight', { flight, index })"
+          :style="{ cursor: isDeleting ? 'default' : 'pointer', opacity: isDeleting ? 0.6 : 1 }"
         >
           <template v-slot:prepend>
             <v-icon icon="mdi-airplane-takeoff" color="primary"></v-icon>
@@ -109,6 +84,8 @@
               variant="text"
               color="error"
               size="small"
+              :disabled="isDeleting"
+              :loading="isDeleting"
               @click.stop="$emit('remove-flight', index)"
             ></v-btn>
           </template>
@@ -119,8 +96,6 @@
 </template>
 
 <script setup>
-import { ref, watch } from "vue";
-
 const props = defineProps({
   currentBatch: {
     type: Object,
@@ -130,31 +105,17 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+  isDeleting: {
+    type: Boolean,
+    default: false,
+  },
   batchProgress: {
     type: Object,
     required: true,
   },
-  batchSize: {
-    type: Number,
-    default: 10,
-  },
 });
 
-const emit = defineEmits([
-  "submit-flights",
-  "remove-flight",
-  "edit-flight",
-  "update:batchSize",
-]);
-
-const localBatchSize = ref(props.batchSize);
-
-watch(
-  () => props.batchSize,
-  (newVal) => {
-    localBatchSize.value = newVal;
-  }
-);
+const emit = defineEmits(["submit-flights", "remove-flight", "edit-flight"]);
 
 const formatDateTime = (dateTimeString) => {
   if (!dateTimeString) return "";

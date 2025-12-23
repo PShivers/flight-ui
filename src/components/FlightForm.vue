@@ -1,37 +1,19 @@
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      <v-icon icon="mdi-plus-circle" class="mr-2"></v-icon>
-      Build Flights
+      {{
+        isEditing
+          ? `Edit Flight ${localFlight.flightNumber}`
+          : `Build Flight ${localFlight.flightNumber}`
+      }}
       <v-chip v-if="currentBatch" size="small" color="primary" class="ml-2">
-        Adding to: {{ currentBatch.title }}
+        {{ isEditing ? "Editing in" : "Adding to" }}: {{ currentBatch.title }}
       </v-chip>
     </v-card-title>
 
     <v-card-text>
       <v-form ref="form" v-model="valid">
         <v-row>
-          <v-col cols="12" md="6">
-            <v-text-field
-              v-model="localFlight.flightNumber"
-              label="Flight Number (FltNum)"
-              :rules="[rules.required]"
-              required
-              hint="Flight number (e.g., 001, 123)"
-              persistent-hint
-            ></v-text-field>
-          </v-col>
-
-          <v-col cols="12" md="6">
-            <v-text-field
-              v-model="localFlight.departureTime"
-              label="Departure Time (StdUtc)"
-              type="datetime-local"
-              :rules="[rules.required]"
-              required
-            ></v-text-field>
-          </v-col>
-
           <v-col cols="12" md="6">
             <v-select
               v-model="localFlight.origin"
@@ -54,6 +36,16 @@
               hint="Select destination airport"
               persistent-hint
             ></v-select>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model="localFlight.departureTime"
+              label="Departure Time (StdUtc)"
+              type="datetime-local"
+              :rules="[rules.required]"
+              required
+            ></v-text-field>
           </v-col>
 
           <v-col cols="12" md="6">
@@ -89,14 +81,15 @@
               >
                 <v-row>
                   <v-col cols="10">
-                    <v-text-field
+                    <v-select
                       v-model="alt.apt"
                       :label="`Alternate ${index + 1}`"
-                      :rules="[rules.airportCode]"
-                      hint="4-letter airport code"
+                      :items="destinationOptions"
+                      :rules="[rules.required]"
+                      hint="Select alternate airport"
                       persistent-hint
                       density="compact"
-                    ></v-text-field>
+                    ></v-select>
                   </v-col>
                   <v-col cols="2" class="d-flex align-center">
                     <v-btn
@@ -125,15 +118,36 @@
         <div class="mt-4">
           <v-btn
             color="primary"
-            :disabled="!valid || !currentBatch"
+            :disabled="!valid || !currentBatch || isSaving"
+            :loading="isSaving"
             @click="handleAddFlight"
             class="mr-2"
           >
-            <v-icon icon="mdi-plus" class="mr-1"></v-icon>
-            Add Flight to Batch
+            <v-icon
+              :icon="isEditing ? 'mdi-content-save' : 'mdi-plus'"
+              class="mr-1"
+            ></v-icon>
+            {{ isEditing ? "Update Flight" : "Add Flight to Batch" }}
           </v-btn>
 
-          <v-btn color="secondary" variant="outlined" @click="handleReset">
+          <v-btn
+            v-if="isEditing"
+            color="secondary"
+            variant="outlined"
+            @click="handleCancel"
+            :disabled="isSaving"
+            class="mr-2"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            v-else
+            color="secondary"
+            variant="outlined"
+            @click="handleReset"
+            :disabled="isSaving"
+            class="mr-2"
+          >
             Reset Form
           </v-btn>
         </div>
@@ -143,7 +157,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from "vue";
+import { ref, reactive, watch, computed } from "vue";
 
 const props = defineProps({
   currentBatch: {
@@ -158,12 +172,28 @@ const props = defineProps({
     type: Array,
     required: true,
   },
+  isSaving: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(["add-flight", "reset-form"]);
 
 const form = ref(null);
 const valid = ref(false);
+const isEditing = ref(false);
+
+// Compute the next flight number based on current batch
+const nextFlightNumber = computed(() => {
+  if (!props.currentBatch || !props.currentBatch.batchNumber) {
+    return "001";
+  }
+
+  // Next flight number is simply the count + 1 (sequential numbering)
+  const flightCount = props.currentBatch.flights?.length || 0;
+  return `${props.currentBatch.batchNumber}-${flightCount + 1}`;
+});
 
 // Helper function to get default datetime-local value (current time + 1 hour)
 const getDefaultDateTime = () => {
@@ -181,7 +211,7 @@ const getDefaultDateTime = () => {
 
 // Default values for flight form
 const getDefaultFlight = () => ({
-  flightNumber: "001",
+  flightNumber: nextFlightNumber.value,
   departureTime: getDefaultDateTime(),
   origin: "KATL",
   destination: "KJFK",
@@ -191,6 +221,11 @@ const getDefaultFlight = () => ({
 });
 
 const localFlight = reactive(getDefaultFlight());
+
+// Watch for changes in the next flight number and update automatically
+watch(nextFlightNumber, (newValue) => {
+  localFlight.flightNumber = newValue;
+});
 
 const rules = {
   required: (value) => !!value || "This field is required",
@@ -233,14 +268,47 @@ const handleAddFlight = async () => {
 };
 
 const handleReset = () => {
+  isEditing.value = false;
   Object.assign(localFlight, getDefaultFlight());
   form.value?.resetValidation();
   emit("reset-form");
 };
 
-// Expose reset method for parent
+const handleCancel = () => {
+  isEditing.value = false;
+  Object.assign(localFlight, getDefaultFlight());
+  form.value?.resetValidation();
+  emit("reset-form");
+};
+
+// Load flight data for editing
+const loadFlight = (flight) => {
+  isEditing.value = true;
+
+  // Convert datetime to datetime-local format
+  const date = new Date(flight.departureTime);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const datetimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+
+  Object.assign(localFlight, {
+    flightNumber: flight.flightNumber || "",
+    departureTime: datetimeLocal,
+    origin: flight.origin || "",
+    destination: flight.destination || "",
+    aircraftId: flight.aircraftId || "",
+    destAltApts: flight.destAltApts ? [...flight.destAltApts] : [],
+    automated: flight.automated ?? true,
+  });
+};
+
+// Expose methods for parent
 defineExpose({
   reset: handleReset,
+  loadFlight,
 });
 </script>
 

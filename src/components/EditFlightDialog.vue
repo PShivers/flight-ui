@@ -14,14 +14,14 @@
         <v-form ref="form" v-model="valid">
           <v-row>
             <v-col cols="12" md="6">
-              <v-text-field
-                v-model="localFlight.flightNumber"
-                label="Flight Number (FltNum)"
-                :rules="[rules.required]"
-                required
-                hint="Flight number (e.g., 001, 123)"
-                persistent-hint
-              ></v-text-field>
+              <div class="mb-4">
+                <div class="text-caption text-medium-emphasis mb-1">
+                  Flight Number (FltNum)
+                </div>
+                <div class="text-h6 font-weight-bold text-primary">
+                  {{ localFlight.flightNumber }}
+                </div>
+              </div>
             </v-col>
 
             <v-col cols="12" md="6">
@@ -91,14 +91,15 @@
                 >
                   <v-row>
                     <v-col cols="10">
-                      <v-text-field
+                      <v-select
                         v-model="alt.apt"
                         :label="`Alternate ${index + 1}`"
-                        :rules="[rules.airportCode]"
-                        hint="4-letter airport code"
+                        :items="destinationOptions"
+                        :rules="[rules.required]"
+                        hint="Select alternate airport"
                         persistent-hint
                         density="compact"
-                      ></v-text-field>
+                      ></v-select>
                     </v-col>
                     <v-col cols="2" class="d-flex align-center">
                       <v-btn
