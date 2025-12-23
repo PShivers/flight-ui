@@ -118,7 +118,8 @@
         <div class="mt-4">
           <v-btn
             color="primary"
-            :disabled="!valid || !currentBatch"
+            :disabled="!valid || !currentBatch || isSaving"
+            :loading="isSaving"
             @click="handleAddFlight"
             class="mr-2"
           >
@@ -134,6 +135,7 @@
             color="secondary"
             variant="outlined"
             @click="handleCancel"
+            :disabled="isSaving"
             class="mr-2"
           >
             Cancel
@@ -143,6 +145,7 @@
             color="secondary"
             variant="outlined"
             @click="handleReset"
+            :disabled="isSaving"
             class="mr-2"
           >
             Reset Form
@@ -168,6 +171,10 @@ const props = defineProps({
   aircraftOptions: {
     type: Array,
     required: true,
+  },
+  isSaving: {
+    type: Boolean,
+    default: false,
   },
 });
 

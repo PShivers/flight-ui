@@ -1,65 +1,95 @@
 <template>
   <v-container fluid>
-    <!-- Batch Management Section -->
-    <v-row>
-      <v-col cols="12">
-        <BatchSelector
-          :batches="batches"
-          :current-batch-id="currentBatchId"
-          @update:currentBatchId="onBatchChange"
-          @create-batch="createNewBatch"
-          @delete-batch="deleteBatch"
-          @show-all-batches="allBatchesDialog = true"
-        />
-      </v-col>
-    </v-row>
+    <!-- Loading State -->
+    <transition name="fade" mode="out-in">
+      <div v-if="isLoadingBatches" key="loading">
+        <v-row>
+          <v-col cols="12">
+            <v-skeleton-loader type="card" class="mb-4"></v-skeleton-loader>
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-col cols="12" md="4" lg="3">
+            <v-skeleton-loader
+              type="card"
+              height="500"
+            ></v-skeleton-loader>
+          </v-col>
+          <v-col cols="12" md="8" lg="9">
+            <v-skeleton-loader
+              type="article, actions"
+              height="500"
+            ></v-skeleton-loader>
+          </v-col>
+        </v-row>
+      </div>
 
-    <!-- Main Content with Sidebar -->
-    <v-row>
-      <!-- Batch Sidebar (Left) -->
-      <v-col cols="12" md="4" lg="3">
-        <BatchSidebar
-          v-if="currentBatch"
-          :current-batch="currentBatch"
-          :is-submitting="isSubmitting"
-          :batch-progress="batchProgress"
-          @submit-flights="submitFlights"
-          @remove-flight="removeFlight"
-          @edit-flight="handleEditFlight"
-        />
-        <v-card v-else>
-          <v-card-text class="text-center pa-8">
-            <v-icon size="64" color="grey-lighten-1" class="mb-4">
-              mdi-folder-open-outline
-            </v-icon>
-            <div class="text-h6 mb-2">No Batch Selected</div>
-            <div class="text-body-2 text-grey mb-4">
-              Create a new batch to get started with building flights
-            </div>
-            <v-btn
-              color="primary"
-              variant="elevated"
-              @click="createNewBatch"
-            >
-              <v-icon start>mdi-plus</v-icon>
-              Create Batch
-            </v-btn>
-          </v-card-text>
-        </v-card>
-      </v-col>
+      <!-- Main Content (loaded) -->
+      <div v-else key="loaded">
+      <!-- Batch Management Section -->
+      <v-row>
+        <v-col cols="12">
+          <BatchSelector
+            :batches="batches"
+            :current-batch-id="currentBatchId"
+            @update:currentBatchId="onBatchChange"
+            @create-batch="createNewBatch"
+            @delete-batch="deleteBatch"
+            @show-all-batches="allBatchesDialog = true"
+          />
+        </v-col>
+      </v-row>
 
-      <!-- Flight Form (Right) -->
-      <v-col cols="12" md="8" lg="9">
-        <FlightForm
-          ref="flightFormRef"
-          :current-batch="currentBatch"
-          :destination-options="destinationOptions"
-          :aircraft-options="aircraftOptions"
-          @add-flight="addFlight"
-          @reset-form="handleFormReset"
-        />
-      </v-col>
-    </v-row>
+      <!-- Main Content with Sidebar -->
+      <v-row>
+        <!-- Batch Sidebar (Left) -->
+        <v-col cols="12" md="4" lg="3">
+          <BatchSidebar
+            v-if="currentBatch"
+            :current-batch="currentBatch"
+            :is-submitting="isSubmitting"
+            :is-deleting="isDeletingFlight"
+            :batch-progress="batchProgress"
+            @submit-flights="submitFlights"
+            @remove-flight="removeFlight"
+            @edit-flight="handleEditFlight"
+          />
+          <v-card v-else>
+            <v-card-text class="text-center pa-8">
+              <v-icon size="64" color="grey-lighten-1" class="mb-4">
+                mdi-folder-open-outline
+              </v-icon>
+              <div class="text-h6 mb-2">No Batch Selected</div>
+              <div class="text-body-2 text-grey mb-4">
+                Create a new batch to get started with building flights
+              </div>
+              <v-btn
+                color="primary"
+                variant="elevated"
+                @click="createNewBatch"
+              >
+                <v-icon start>mdi-plus</v-icon>
+                Create Batch
+              </v-btn>
+            </v-card-text>
+          </v-card>
+        </v-col>
+
+        <!-- Flight Form (Right) -->
+        <v-col cols="12" md="8" lg="9">
+          <FlightForm
+            ref="flightFormRef"
+            :current-batch="currentBatch"
+            :destination-options="destinationOptions"
+            :aircraft-options="aircraftOptions"
+            :is-saving="isSavingFlight"
+            @add-flight="addFlight"
+            @reset-form="handleFormReset"
+          />
+        </v-col>
+      </v-row>
+      </div>
+    </transition>
 
     <!-- Snackbar -->
     <v-snackbar
@@ -100,6 +130,9 @@ import AllBatchesDialog from "../components/AllBatchesDialog.vue";
 
 const flightFormRef = ref(null);
 const isSubmitting = ref(false);
+const isSavingFlight = ref(false);
+const isDeletingFlight = ref(false);
+const isLoadingBatches = ref(true);
 const currentBatchId = ref(null);
 const batches = ref({});
 const newBatchDialog = ref(false);
@@ -221,6 +254,7 @@ const deleteBatch = async (batchId) => {
 
 // Data loading
 const loadBatchesFromAPI = async () => {
+  isLoadingBatches.value = true;
   try {
     const batchData = await batchApi.getBatches();
     batches.value = batchData;
@@ -235,6 +269,8 @@ const loadBatchesFromAPI = async () => {
   } catch (error) {
     console.error("Error loading batches from API:", error);
     showSnackbar("Failed to load batches", "error");
+  } finally {
+    isLoadingBatches.value = false;
   }
 };
 
@@ -261,16 +297,19 @@ const addFlight = async (flightData) => {
     return;
   }
 
+  isSavingFlight.value = true;
+
   try {
     // Check if we're editing an existing flight
     if (editingFlightId.value) {
-      // Update existing flight
-      await batchApi.updateFlight(editingFlightId.value, flightData);
-
-      // Find and update the flight in the local array
+      // Update existing flight - optimistically update UI first
       const flightIndex = currentBatch.value.flights.findIndex(
         f => f.id === editingFlightId.value
       );
+
+      const originalFlight = flightIndex !== -1 ? { ...currentBatch.value.flights[flightIndex] } : null;
+
+      // Optimistic update
       if (flightIndex !== -1) {
         currentBatch.value.flights[flightIndex] = {
           ...currentBatch.value.flights[flightIndex],
@@ -278,18 +317,55 @@ const addFlight = async (flightData) => {
         };
       }
 
-      showSnackbar("Flight updated successfully!", "success");
+      try {
+        await batchApi.updateFlight(editingFlightId.value, flightData);
+        showSnackbar("Flight updated successfully!", "success");
+      } catch (error) {
+        // Rollback on error
+        if (originalFlight && flightIndex !== -1) {
+          currentBatch.value.flights[flightIndex] = originalFlight;
+        }
+        throw error;
+      }
+
       editingFlightId.value = null;
     } else {
-      // Add new flight
-      const newFlight = await batchApi.addFlight(
-        currentBatch.value.id,
-        flightData
-      );
+      // Add new flight - create optimistic flight with temporary ID
+      const optimisticFlight = {
+        id: `temp-${Date.now()}`,
+        ...flightData,
+        createdAt: new Date().toISOString(),
+      };
 
-      currentBatch.value.flights.push(newFlight);
+      // Optimistically add to UI
+      currentBatch.value.flights.push(optimisticFlight);
 
-      showSnackbar(`Flight added to "${currentBatch.value.title}"!`, "success");
+      try {
+        // Make API call
+        const newFlight = await batchApi.addFlight(
+          currentBatch.value.id,
+          flightData
+        );
+
+        // Replace optimistic flight with real one
+        const optimisticIndex = currentBatch.value.flights.findIndex(
+          f => f.id === optimisticFlight.id
+        );
+        if (optimisticIndex !== -1) {
+          currentBatch.value.flights[optimisticIndex] = newFlight;
+        }
+
+        showSnackbar(`Flight added to "${currentBatch.value.title}"!`, "success");
+      } catch (error) {
+        // Remove optimistic flight on error
+        const optimisticIndex = currentBatch.value.flights.findIndex(
+          f => f.id === optimisticFlight.id
+        );
+        if (optimisticIndex !== -1) {
+          currentBatch.value.flights.splice(optimisticIndex, 1);
+        }
+        throw error;
+      }
     }
 
     // Reset the form
@@ -299,6 +375,8 @@ const addFlight = async (flightData) => {
   } catch (error) {
     console.error("Error saving flight:", error);
     showSnackbar("Failed to save flight", "error");
+  } finally {
+    isSavingFlight.value = false;
   }
 };
 
@@ -313,36 +391,56 @@ const removeFlight = async (index) => {
   const flight = currentBatch.value.flights[index];
   if (!flight) return;
 
+  isDeletingFlight.value = true;
+
+  // Save original state for rollback
+  const originalFlights = [...currentBatch.value.flights];
+
   try {
-    await batchApi.deleteFlight(flight.id);
+    // Optimistically remove and renumber
     currentBatch.value.flights.splice(index, 1);
 
     // Renumber all remaining flights sequentially
     const batchNumber = currentBatch.value.batchNumber;
     for (let i = 0; i < currentBatch.value.flights.length; i++) {
       const newFlightNumber = `${batchNumber}-${i + 1}`;
-      const flightToUpdate = currentBatch.value.flights[i];
-
-      // Only update if the flight number has changed
-      if (flightToUpdate.flightNumber !== newFlightNumber) {
-        flightToUpdate.flightNumber = newFlightNumber;
-
-        // Update in the database
-        await batchApi.updateFlight(flightToUpdate.id, {
-          flightNumber: newFlightNumber,
-          origin: flightToUpdate.origin,
-          destination: flightToUpdate.destination,
-          departureTime: flightToUpdate.departureTime,
-          arrivalTime: flightToUpdate.arrivalTime,
-          aircraftType: flightToUpdate.aircraftType,
-        });
-      }
+      currentBatch.value.flights[i].flightNumber = newFlightNumber;
     }
 
-    showSnackbar("Flight removed and flights renumbered", "info");
+    // Now make the API calls
+    try {
+      await batchApi.deleteFlight(flight.id);
+
+      // Update renumbered flights in database
+      for (let i = 0; i < currentBatch.value.flights.length; i++) {
+        const newFlightNumber = `${batchNumber}-${i + 1}`;
+        const flightToUpdate = currentBatch.value.flights[i];
+        const originalFlight = originalFlights[i >= index ? i + 1 : i];
+
+        // Only update if the flight number has changed
+        if (originalFlight && flightToUpdate.flightNumber !== originalFlight.flightNumber) {
+          await batchApi.updateFlight(flightToUpdate.id, {
+            flightNumber: newFlightNumber,
+            origin: flightToUpdate.origin,
+            destination: flightToUpdate.destination,
+            departureTime: flightToUpdate.departureTime,
+            arrivalTime: flightToUpdate.arrivalTime,
+            aircraftType: flightToUpdate.aircraftType,
+          });
+        }
+      }
+
+      showSnackbar("Flight removed and flights renumbered", "info");
+    } catch (error) {
+      // Rollback on error
+      currentBatch.value.flights = originalFlights;
+      throw error;
+    }
   } catch (error) {
     console.error("Error removing flight:", error);
     showSnackbar("Failed to remove flight", "error");
+  } finally {
+    isDeletingFlight.value = false;
   }
 };
 
@@ -396,4 +494,14 @@ const showSnackbar = (message, color = "success") => {
 };
 </script>
 
-<style scoped></style>
+<style scoped>
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

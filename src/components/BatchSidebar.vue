@@ -57,10 +57,10 @@
       <v-list v-else density="compact">
         <v-list-item
           v-for="(flight, index) in currentBatch.flights"
-          :key="index"
+          :key="flight.id || index"
           class="mb-2"
-          @click="$emit('edit-flight', { flight, index })"
-          style="cursor: pointer"
+          @click="isDeleting ? null : $emit('edit-flight', { flight, index })"
+          :style="{ cursor: isDeleting ? 'default' : 'pointer', opacity: isDeleting ? 0.6 : 1 }"
         >
           <template v-slot:prepend>
             <v-icon icon="mdi-airplane-takeoff" color="primary"></v-icon>
@@ -84,6 +84,8 @@
               variant="text"
               color="error"
               size="small"
+              :disabled="isDeleting"
+              :loading="isDeleting"
               @click.stop="$emit('remove-flight', index)"
             ></v-btn>
           </template>
@@ -100,6 +102,10 @@ const props = defineProps({
     required: true,
   },
   isSubmitting: {
+    type: Boolean,
+    default: false,
+  },
+  isDeleting: {
     type: Boolean,
     default: false,
   },
