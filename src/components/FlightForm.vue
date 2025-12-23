@@ -1,8 +1,7 @@
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      <v-icon icon="mdi-plus-circle" class="mr-2"></v-icon>
-      Build Flights
+      Build Flight
       <v-chip v-if="currentBatch" size="small" color="primary" class="ml-2">
         Adding to: {{ currentBatch.title }}
       </v-chip>
