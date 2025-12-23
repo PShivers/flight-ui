@@ -88,14 +88,15 @@
               >
                 <v-row>
                   <v-col cols="10">
-                    <v-text-field
+                    <v-select
                       v-model="alt.apt"
                       :label="`Alternate ${index + 1}`"
-                      :rules="[rules.airportCode]"
-                      hint="4-letter airport code"
+                      :items="destinationOptions"
+                      :rules="[rules.required]"
+                      hint="Select alternate airport"
                       persistent-hint
                       density="compact"
-                    ></v-text-field>
+                    ></v-select>
                   </v-col>
                   <v-col cols="2" class="d-flex align-center">
                     <v-btn
