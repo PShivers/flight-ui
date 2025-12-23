@@ -67,7 +67,7 @@ class BatchApiService {
       destination: flight.destination,
       departureTime: flight.departureTime,
       arrivalTime: flight.arrivalTime,
-      aircraftType: flight.aircraftType,
+      aircraftId: flight.aircraftId,
     };
 
     return this.request(`/batches/${batchId}/flights`, {
@@ -85,7 +85,7 @@ class BatchApiService {
         destination: flight.destination,
         departureTime: flight.departureTime,
         arrivalTime: flight.arrivalTime,
-        aircraftType: flight.aircraftType,
+        aircraftId: flight.aircraftId,
       }),
     });
   }

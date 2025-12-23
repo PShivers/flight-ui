@@ -425,7 +425,7 @@ const removeFlight = async (index) => {
             destination: flightToUpdate.destination,
             departureTime: flightToUpdate.departureTime,
             arrivalTime: flightToUpdate.arrivalTime,
-            aircraftType: flightToUpdate.aircraftType,
+            aircraftId: flightToUpdate.aircraftId,
           });
         }
       }

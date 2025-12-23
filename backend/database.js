@@ -32,7 +32,7 @@ db.exec(`
     destination TEXT NOT NULL,
     departureTime TEXT,
     arrivalTime TEXT,
-    aircraftType TEXT,
+    aircraftId TEXT,
     createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (batchId) REFERENCES batches (id) ON DELETE CASCADE
   )
@@ -51,11 +51,11 @@ const statements = {
   // Flights
   getFlightsByBatchId: db.prepare('SELECT * FROM flights WHERE batchId = ? ORDER BY createdAt DESC'),
   insertFlight: db.prepare(`
-    INSERT INTO flights (id, batchId, flightNumber, origin, destination, departureTime, arrivalTime, aircraftType)
+    INSERT INTO flights (id, batchId, flightNumber, origin, destination, departureTime, arrivalTime, aircraftId)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `),
   updateFlight: db.prepare(`
-    UPDATE flights SET flightNumber = ?, origin = ?, destination = ?, departureTime = ?, arrivalTime = ?, aircraftType = ?
+    UPDATE flights SET flightNumber = ?, origin = ?, destination = ?, departureTime = ?, arrivalTime = ?, aircraftId = ?
     WHERE id = ?
   `),
   deleteFlight: db.prepare('DELETE FROM flights WHERE id = ?'),

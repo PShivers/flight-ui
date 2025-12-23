@@ -140,7 +140,7 @@ app.delete('/api/batches/:id', (req, res) => {
 // Add flight to batch
 app.post('/api/batches/:batchId/flights', (req, res) => {
   try {
-    const { flightNumber, origin, destination, departureTime, arrivalTime, aircraftType } = req.body;
+    const { flightNumber, origin, destination, departureTime, arrivalTime, aircraftId } = req.body;
 
     if (!flightNumber) {
       return res.status(400).json({ error: 'Flight number is required' });
@@ -165,7 +165,7 @@ app.post('/api/batches/:batchId/flights', (req, res) => {
       destination,
       departureTime || null,
       arrivalTime || null,
-      aircraftType || null
+      aircraftId || null
     );
 
     const flights = statements.getFlightsByBatchId.all(req.params.batchId);
@@ -181,7 +181,7 @@ app.post('/api/batches/:batchId/flights', (req, res) => {
 // Update flight
 app.put('/api/flights/:id', (req, res) => {
   try {
-    const { flightNumber, origin, destination, departureTime, arrivalTime, aircraftType } = req.body;
+    const { flightNumber, origin, destination, departureTime, arrivalTime, aircraftId } = req.body;
 
     if (!flightNumber) {
       return res.status(400).json({ error: 'Flight number is required' });
@@ -196,7 +196,7 @@ app.put('/api/flights/:id', (req, res) => {
       destination,
       departureTime || null,
       arrivalTime || null,
-      aircraftType || null,
+      aircraftId || null,
       req.params.id
     );
 

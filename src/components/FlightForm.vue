@@ -299,7 +299,7 @@ const loadFlight = (flight) => {
     departureTime: datetimeLocal,
     origin: flight.origin || "",
     destination: flight.destination || "",
-    aircraftId: flight.aircraftId || flight.aircraftType || "",
+    aircraftId: flight.aircraftId || "",
     destAltApts: flight.destAltApts ? [...flight.destAltApts] : [],
     automated: flight.automated ?? true,
   });
