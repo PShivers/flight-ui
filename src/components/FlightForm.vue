@@ -1,36 +1,19 @@
 <template>
   <v-card>
     <v-card-title class="d-flex align-center">
-      {{ isEditing ? 'Edit Flight' : 'Build Flight' }}
+      {{
+        isEditing
+          ? `Edit Flight ${localFlight.flightNumber}`
+          : `Build Flight ${localFlight.flightNumber}`
+      }}
       <v-chip v-if="currentBatch" size="small" color="primary" class="ml-2">
-        {{ isEditing ? 'Editing in' : 'Adding to' }}: {{ currentBatch.title }}
+        {{ isEditing ? "Editing in" : "Adding to" }}: {{ currentBatch.title }}
       </v-chip>
     </v-card-title>
 
     <v-card-text>
       <v-form ref="form" v-model="valid">
         <v-row>
-          <v-col cols="12" md="6">
-            <div class="mb-4">
-              <div class="text-caption text-medium-emphasis mb-1">
-                Flight Number (FltNum)
-              </div>
-              <div class="text-h6 font-weight-bold text-primary">
-                {{ localFlight.flightNumber }}
-              </div>
-            </div>
-          </v-col>
-
-          <v-col cols="12" md="6">
-            <v-text-field
-              v-model="localFlight.departureTime"
-              label="Departure Time (StdUtc)"
-              type="datetime-local"
-              :rules="[rules.required]"
-              required
-            ></v-text-field>
-          </v-col>
-
           <v-col cols="12" md="6">
             <v-select
               v-model="localFlight.origin"
@@ -53,6 +36,16 @@
               hint="Select destination airport"
               persistent-hint
             ></v-select>
+          </v-col>
+
+          <v-col cols="12" md="6">
+            <v-text-field
+              v-model="localFlight.departureTime"
+              label="Departure Time (StdUtc)"
+              type="datetime-local"
+              :rules="[rules.required]"
+              required
+            ></v-text-field>
           </v-col>
 
           <v-col cols="12" md="6">
@@ -124,6 +117,19 @@
 
         <div class="mt-4">
           <v-btn
+            color="primary"
+            :disabled="!valid || !currentBatch"
+            @click="handleAddFlight"
+            class="mr-2"
+          >
+            <v-icon
+              :icon="isEditing ? 'mdi-content-save' : 'mdi-plus'"
+              class="mr-1"
+            ></v-icon>
+            {{ isEditing ? "Update Flight" : "Add Flight to Batch" }}
+          </v-btn>
+
+          <v-btn
             v-if="isEditing"
             color="secondary"
             variant="outlined"
@@ -140,15 +146,6 @@
             class="mr-2"
           >
             Reset Form
-          </v-btn>
-
-          <v-btn
-            color="primary"
-            :disabled="!valid || !currentBatch"
-            @click="handleAddFlight"
-          >
-            <v-icon :icon="isEditing ? 'mdi-content-save' : 'mdi-plus'" class="mr-1"></v-icon>
-            {{ isEditing ? 'Update Flight' : 'Add Flight to Batch' }}
           </v-btn>
         </div>
       </v-form>
